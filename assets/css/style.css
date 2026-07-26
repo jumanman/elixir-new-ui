@@ -425,7 +425,6 @@ button:focus {
 .tooltip-container {
     position: relative;
     display: inline-block;
-    cursor: help;
 }
 
 .tooltip {
@@ -476,6 +475,8 @@ button:focus {
     display: block;
     word-break: break-all;
     max-width: 300px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* 状态标签 */
@@ -874,4 +875,13 @@ button:focus {
 .login-modal-body .form-group input.error {
     border-color: #ef4444 !important;
     background: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* 登录隐私提示 */
+.login-privacy-notice {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #ef4444;
+    text-align: center;
+    line-height: 1.5;
 }

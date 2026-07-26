@@ -590,5 +590,10 @@
         });
     }
 
-    init();
+    // 等待页面加载完成后再初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();
