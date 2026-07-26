@@ -83,6 +83,54 @@
         }
     }
 
+    // 公钥缓存（避免每次登录都请求公钥端点）
+    let cachedPublicKey = null;
+
+    // 获取服务器 RSA 公钥（带缓存）
+    async function getServerPublicKey() {
+        if (cachedPublicKey) return cachedPublicKey;
+
+        const response = await fetch(API_ENDPOINTS.PUBKEY, {
+            method: 'GET',
+            cache: 'no-cache'
+        });
+        if (!response.ok) {
+            throw new Error('获取公钥失败');
+        }
+        const data = await response.json();
+        if (!data.publicKey) {
+            throw new Error('公钥数据无效');
+        }
+
+        // 导入公钥用于加密
+        cachedPublicKey = await crypto.subtle.importKey(
+            'jwk',
+            data.publicKey,
+            { name: 'RSA-OAEP', hash: 'SHA-256' },
+            false,
+            ['encrypt']
+        );
+        return cachedPublicKey;
+    }
+
+    // 使用 RSA 公钥加密密码，返回 Base64 字符串
+    async function encryptPassword(password) {
+        const publicKey = await getServerPublicKey();
+        const encoder = new TextEncoder();
+        const encrypted = await crypto.subtle.encrypt(
+            { name: 'RSA-OAEP' },
+            publicKey,
+            encoder.encode(password)
+        );
+        // 转 Base64 以便通过 JSON 传输
+        const bytes = new Uint8Array(encrypted);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
     // 加载登录弹窗HTML
     async function loadLoginModal() {
         try {
@@ -336,13 +384,23 @@
         submitBtn.textContent = '登录中...';
 
         try {
-            // 使用相对路径调用API，所有参数由Worker处理
+            // 使用 RSA 公钥加密密码（防止明文传输）
+            let encryptedPassword;
+            try {
+                encryptedPassword = await encryptPassword(password);
+            } catch (e) {
+                console.error('[Elixir登录] 密码加密失败:', e);
+                showError('password-error', '加密失败，请刷新页面重试');
+                return;
+            }
+
+            // 发送加密后的密码，Worker 用私钥解密后转发给目标服务器
             const response = await fetch(API_ENDPOINTS.LOGIN, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email, encryptedPassword }),
                 credentials: 'include',
                 cache: 'no-cache'
             });
