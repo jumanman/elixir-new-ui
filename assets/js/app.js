@@ -247,8 +247,8 @@
             updateBtn.className = 'download-btn';
             updateBtn.style.marginLeft = '0.5rem';
             updateBtn.textContent = '更新';
-            updateBtn.addEventListener('click', () => {
-                updateApk(record.pkgName);
+            updateBtn.addEventListener('click', (event) => {
+                updateApk(record.pkgName, event.currentTarget);
             });
 
             actionTd.appendChild(downloadBtn);
@@ -281,14 +281,23 @@
             });
             return;
         }
-        
-        // 将原始URL转换为代理URL
-        let proxyUrl = url;
+
+        // 安全：仅允许代理目标域名的URL，防止SSRF/开放重定向
+        let proxyUrl;
         if (url.startsWith('https://open.lihouse.xyz')) {
-            // 去掉域名部分，保留路径
-            proxyUrl = API_CONFIG.BASE_URL + url.replace('https://open.lihouse.xyz', '');
+            // 提取路径部分，通过下载端点代理（worker会校验路径遍历和文件扩展名）
+            const filePath = url.replace('https://open.lihouse.xyz', '');
+            proxyUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.DOWNLOAD + '?path=' + encodeURIComponent(filePath);
+        } else if (url.startsWith('/')) {
+            // 相对路径，直接通过下载端点代理
+            proxyUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.DOWNLOAD + '?path=' + encodeURIComponent(url);
+        } else {
+            // 不允许的URL格式，拒绝下载
+            console.error('[Elixir安全] 拒绝非目标域名下载URL:', url);
+            alert('下载链接无效');
+            return;
         }
-        
+
         const a = document.createElement('a');
         a.href = proxyUrl;
         a.download = url.split('/').pop() || 'download.apk';
@@ -298,7 +307,7 @@
     }
 
     // 更新APK（通过代理）
-    window.updateApk = async function(packageName) {
+    window.updateApk = async function(packageName, btn) {
         if (!packageName) return;
 
         // 安全检查：包名格式验证
@@ -316,7 +325,11 @@
             return;
         }
 
-        const btn = event.target;
+        // 安全检查：确保 btn 是有效的 DOM 元素
+        if (!btn || !btn.textContent) {
+            console.error('[Elixir安全] 更新按钮引用无效');
+            return;
+        }
         const originalText = btn.textContent;
         
         try {

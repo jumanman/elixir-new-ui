@@ -22,11 +22,36 @@
         }
     }
 
-    // HTML清理（XSS防护）
+    // HTML清理（XSS防护，使用DOMParser比正则更安全）
     function sanitizeHtml(html) {
-        return html.replace(/<script[^>]*>.*?<\/script>/gi, '')
-                   .replace(/on\w+\s*=\s*["'].*?["']/gi, '')
-                   .replace(/javascript:/gi, 'javascript:');
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // 移除所有 <script> 标签
+            doc.querySelectorAll('script').forEach(el => el.remove());
+
+            // 移除所有事件处理属性和危险URL
+            doc.querySelectorAll('*').forEach(el => {
+                [...el.attributes].forEach(attr => {
+                    const attrName = attr.name.toLowerCase();
+                    const attrValue = attr.value.toLowerCase().trim();
+                    // 移除 on* 事件属性
+                    if (attrName.startsWith('on')) {
+                        el.removeAttribute(attr.name);
+                    }
+                    // 移除 javascript: 协议
+                    if ((attrName === 'href' || attrName === 'src') && attrValue.startsWith('javascript:')) {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+            });
+
+            return doc.body.innerHTML;
+        } catch (e) {
+            console.error('[Elixir登录] HTML清理失败:', e);
+            return '';
+        }
     }
 
     // 初始化登录弹窗
