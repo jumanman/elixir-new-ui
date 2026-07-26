@@ -230,12 +230,12 @@
                 throw new Error('不安全的请求协议');
             }
 
+            // 使用浏览器原生请求头，只添加必要的Content-Type
             const response = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ email, password }),
                 credentials: 'include',
@@ -267,6 +267,7 @@
                     try {
                         const testUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
                         
+                        // 使用浏览器原生请求头
                         const testResponse = await fetch(testUrl, {
                             method: 'GET',
                             mode: 'cors',
@@ -278,17 +279,11 @@
                         if (testResponse.headers.has('Set-Cookie')) {
                             CookieManager.setCookiesFromResponse(testResponse);
                         }
-
-                        // 检查当前Cookie
-                        console.log('[Elixir登录] 当前所有Cookie:', CookieManager.getAllCookies());
-                        console.log('[Elixir登录] AuthKey Cookie:', CookieManager.getAuthCookie());
                         
                         if (testResponse.ok) {
                             const testData = await testResponse.json();
-                            console.log('[Elixir登录] 测试请求响应数据:', testData);
-                            console.log('[Elixir登录] Cookie验证成功');
                         } else {
-                            console.log('[Elixir登录] 测试请求失败:', testResponse.statusText);
+                            console.error('[Elixir登录] 测试请求失败:', testResponse.statusText);
                         }
                     } catch (e) {
                         console.error('[Elixir登录] Cookie验证失败:', e);

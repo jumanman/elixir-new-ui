@@ -10,7 +10,6 @@
                 date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
                 const expires = "expires=" + date.toUTCString();
                 document.cookie = name + "=" + value + ";" + expires + ";path=/;Secure;SameSite=Lax";
-                console.log('[Elixir Cookie] 设置Cookie:', name + '=' + value);
             } catch (e) {
                 console.error('[Elixir Cookie] 设置Cookie失败:', e);
             }
@@ -28,11 +27,9 @@
                     }
                     if (c.indexOf(nameEQ) === 0) {
                         const value = c.substring(nameEQ.length, c.length);
-                        console.log('[Elixir Cookie] 获取Cookie:', name + '=' + value);
                         return value;
                     }
                 }
-                console.log('[Elixir Cookie] 未找到Cookie:', name);
                 return null;
             } catch (e) {
                 console.error('[Elixir Cookie] 获取Cookie失败:', e);
@@ -44,7 +41,6 @@
         deleteCookie: function(name) {
             try {
                 document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;Secure;SameSite=Lax";
-                console.log('[Elixir Cookie] 删除Cookie:', name);
             } catch (e) {
                 console.error('[Elixir Cookie] 删除Cookie失败:', e);
             }
@@ -67,7 +63,6 @@
                         cookies[name] = value;
                     }
                 }
-                console.log('[Elixir Cookie] 所有Cookies:', cookies);
                 return cookies;
             } catch (e) {
                 console.error('[Elixir Cookie] 获取所有Cookies失败:', e);
@@ -80,7 +75,6 @@
             try {
                 const setCookieHeader = response.headers.get('Set-Cookie');
                 if (setCookieHeader) {
-                    console.log('[Elixir Cookie] 响应头中的Set-Cookie:', setCookieHeader);
                     
                     // 解析Set-Cookie头
                     const cookies = setCookieHeader.split(', ');
@@ -90,8 +84,6 @@
                         const [nameValue] = parts[0].split('=');
                         const name = nameValue.trim();
                         const value = parts[0].substring(name.length + 1).trim();
-                        
-                        console.log('[Elixir Cookie] 设置Cookie:', name + '=' + value);
                         
                         // 提取过期时间
                         let expires = 30; // 默认30天
@@ -104,11 +96,6 @@
                         
                         this.setCookie(name, value, expires);
                     }
-                    
-                    // 设置完成后立即检查
-                    console.log('[Elixir Cookie] 设置后的所有Cookies:', this.getAllCookies());
-                } else {
-                    console.log('[Elixir Cookie] 响应中没有Set-Cookie头');
                 }
             } catch (e) {
                 console.error('[Elixir Cookie] 从响应头设置Cookie失败:', e);

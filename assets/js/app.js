@@ -43,6 +43,7 @@
             throw new Error('需要登录才能访问此功能');
         }
 
+        // 使用浏览器原生请求头，不添加任何硬编码头部
         const mergedOptions = {
             ...options,
             headers: {
