@@ -1,0 +1,25 @@
+<div id="elixir-login-modal" class="login-modal">
+    <div class="login-modal-overlay" id="login-modal-overlay"></div>
+    <div class="login-modal-content">
+        <div class="login-modal-header">
+            <h3>登录</h3>
+            <button class="login-modal-close" id="login-modal-close">×</button>
+        </div>
+        <div class="login-modal-body">
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">邮箱</label>
+                    <input type="email" id="login-email" placeholder="请输入邮箱" maxlength="100">
+                    <span class="form-error" id="email-error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">密码</label>
+                    <input type="password" id="login-password" placeholder="请输入密码" maxlength="50">
+                    <span class="form-error" id="password-error"></span>
+                </div>
+                <button type="submit" class="login-submit-btn">登录</button>
+            </form>
+            <p class="login-tip">登录后将自动保存会话，刷新页面后仍保持登录状态</p>
+        </div>
+    </div>
+</div>

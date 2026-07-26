@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Elixir 工具 - APK 页面优化",
+  "version": "1.1.0",
+  "description": "优化 Elixir 面板的 APK 改包页面，合并同类项、修复字体显示并支持隐藏指定包名",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://open.lihouse.xyz/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://open.lihouse.xyz/elixir*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

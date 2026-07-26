@@ -1,0 +1,860 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --dark-bg: #0a0a0f;
+    --darker-bg: #05050a;
+    --card-bg: rgba(255, 255, 255, .05);
+    --card-border: rgba(255, 255, 255, .1);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, .8);
+    --text-tertiary: rgba(255, 255, 255, .6);
+    --text-muted: rgba(255, 255, 255, .4);
+    --font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    --font-size-xs: .875rem;
+    --font-size-sm: 1rem;
+    --font-size-md: 1.125rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --transition-normal: .3s ease;
+}
+
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    font-weight: 400;
+    color: var(--text-primary);
+    background-color: var(--dark-bg);
+    margin: 0;
+    padding: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+h2 {
+    font-size: var(--font-size-xl);
+}
+
+h3 {
+    font-size: var(--font-size-lg);
+}
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+button:focus {
+    outline: none;
+}
+
+/* 顶部按钮容器 */
+#elixir-header-buttons {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 99999;
+}
+
+/* 设置按钮 */
+#elixir-settings-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+#elixir-settings-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+/* 设置面板 */
+#elixir-settings-panel {
+    position: fixed;
+    top: 70px;
+    right: 16px;
+    width: 340px;
+    background: rgba(10, 10, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 99999;
+    font-family: var(--font-family);
+    font-size: 14px;
+    display: none;
+    backdrop-filter: blur(20px);
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+#elixir-settings-panel.show {
+    display: block;
+}
+
+#elixir-settings-panel .settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#elixir-settings-panel .settings-header span:first-child {
+    font-weight: 600;
+    color: #fff;
+    font-size: 15px;
+}
+
+#elixir-settings-panel .settings-close-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+#elixir-settings-panel .settings-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+#elixir-settings-panel .settings-content {
+    padding: 16px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+#elixir-settings-panel .settings-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+#elixir-settings-panel .settings-item input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+#elixir-settings-panel .settings-item input:focus {
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#elixir-settings-panel .settings-item input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+#elixir-settings-panel .settings-remove-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+#elixir-settings-panel .settings-remove-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+
+#elixir-settings-panel .settings-add-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #667eea;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+#elixir-settings-panel .settings-add-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: #667eea;
+}
+
+/* 主容器 */
+.dashboard-container {
+    background: transparent;
+    color: #fff;
+    padding: 2rem;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.dashboard-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #fff;
+    border-bottom: 2px solid rgba(102, 126, 234, .3);
+    padding-bottom: .5rem;
+}
+
+/* 上传区域 */
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.file-uploader {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.file-input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.file-label {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.file-label:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(102, 126, 234, 0.5);
+}
+
+.upload-icon {
+    font-size: 1.5rem;
+}
+
+.primary-btn {
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .3s ease;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.primary-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
+}
+
+.primary-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* 记录区域 */
+.records-section {
+    margin-top: 2rem;
+}
+
+.records-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.records-table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.records-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.records-table th,
+.records-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.records-table th {
+    background: rgba(255, 255, 255, 0.06);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.records-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.records-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* 包名显示 */
+.package-name {
+    font-family: monospace;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tooltip-container {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.tooltip {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all .3s ease;
+    pointer-events: none;
+}
+
+.tooltip-container:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
+    top: -40px;
+}
+
+/* 双行显示样式 */
+.elixir-text-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.elixir-package-text {
+    font-family: var(--font-family);
+    font-size: 14px;
+    color: #fff;
+    text-align: left;
+    display: block;
+    font-weight: 600;
+}
+
+.elixir-package-name {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: left;
+    display: block;
+    word-break: break-all;
+    max-width: 300px;
+}
+
+/* 状态标签 */
+.status-badge {
+    display: inline-block;
+    padding: .25rem .75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.status-badge.success {
+    background: rgba(72, 187, 120, 0.2);
+    color: #48bb78;
+}
+
+.status-badge.failure {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.status-badge.queued {
+    background: rgba(250, 204, 21, 0.2);
+    color: #facc15;
+}
+
+.status-badge.processing {
+    background: rgba(96, 165, 250, 0.2);
+    color: #60a5fa;
+}
+
+/* 操作按钮 */
+.download-btn {
+    padding: .5rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .3s ease;
+    font-size: 0.875rem;
+}
+
+.download-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.download-btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+/* 隐藏的行 */
+.records-table tbody tr[data-elixir-hidden] {
+    display: none !important;
+}
+
+/* 空状态 */
+.no-records {
+    text-align: center;
+    padding: 3rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #764ba2, #667eea);
+}
+
+/* 响应式 */
+@media(max-width: 1100px) {
+    .dashboard-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media(max-width: 768px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+
+    .file-label {
+        padding: .75rem 1.25rem;
+    }
+
+    .records-table th,
+    .records-table td {
+        padding: .75rem;
+        font-size: 0.875rem;
+    }
+
+    .package-name {
+        max-width: 150px;
+    }
+
+    #elixir-settings-panel {
+        width: calc(100% - 32px);
+    }
+}
+
+@media(max-width: 768px) {
+    #elixir-header-buttons {
+        top: 12px;
+        right: 12px;
+        gap: 8px;
+    }
+
+    .login-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .login-btn span.login-icon {
+        display: none;
+    }
+
+    #elixir-settings-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .dashboard-content {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+@media(max-width: 480px) {
+    .file-label {
+        flex-direction: column;
+        text-align: center;
+        gap: .5rem;
+    }
+
+    .upload-icon {
+        font-size: 2rem;
+    }
+
+    .records-table {
+        font-size: 0.8rem;
+    }
+
+    .records-table th,
+    .records-table td {
+        padding: .5rem;
+    }
+
+    .elixir-package-name {
+        max-width: 150px;
+    }
+}
+
+/* 版权信息 */
+.copyright {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #ef4444;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.copyright .author {
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: help;
+}
+
+.copyright .original-link {
+    color: #667eea;
+    text-decoration: underline;
+}
+
+.copyright .original-link:hover {
+    color: #764ba2;
+}
+
+/* 登录按钮 */
+.login-btn {
+    padding: 10px 16px;
+    background: rgba(239, 68, 68, 0.95);
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #fff;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.login-btn:hover {
+    background: rgba(239, 68, 68, 1);
+    transform: translateY(-1px);
+}
+
+.login-btn.hidden {
+    display: none;
+}
+
+.login-icon {
+    font-size: 14px;
+}
+
+/* 登录弹窗 */
+.login-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.login-modal.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.login-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.login-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    background: rgba(10, 10, 15, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.login-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.login-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.login-modal-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.login-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.login-modal-body {
+    padding: 24px;
+}
+
+.login-modal-body .form-group {
+    margin-bottom: 16px;
+}
+
+.login-modal-body .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.login-modal-body .form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.login-modal-body .form-group input:focus {
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.login-modal-body .form-group input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.login-modal-body .form-error {
+    display: none;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #ef4444;
+}
+
+.login-submit-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+.login-submit-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.login-submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.login-tip {
+    margin-top: 16px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: center;
+    line-height: 1.5;
+}

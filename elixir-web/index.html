@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elixir热更新</title>
+    <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 顶部按钮容器 -->
+    <div id="elixir-header-buttons">
+        <!-- 登录按钮 -->
+        <button id="login-btn" class="login-btn">
+            <span class="login-icon">🔐</span> 请先登录
+        </button>
+        
+        <!-- 设置按钮 -->
+        <div id="elixir-settings-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- 设置面板 -->
+    <div id="elixir-settings-panel">
+        <div class="settings-header">
+            <span>隐藏包名</span>
+            <button class="settings-close-btn">×</button>
+        </div>
+        <div class="settings-content">
+            <div id="settings-package-list"></div>
+            <button id="settings-add-btn" class="settings-add-btn">
+                <span>+</span> 添加包名
+            </button>
+        </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="dashboard-container">
+        <div class="dashboard-content">
+            <div class="dashboard-section">
+                <h2 class="section-title">APK上传改包</h2>
+                <div class="upload-section">
+                    <div class="file-uploader">
+                        <input id="apk-upload" type="file" accept=".apk" class="file-input">
+                        <label for="apk-upload" class="file-label">
+                            <span class="upload-icon">📁</span> 选择APK文件
+                        </label>
+                    </div>
+                    <button class="primary-btn" disabled>上传并改包</button>
+                </div>
+
+                <div class="records-section">
+                    <h3 class="records-title">改包记录</h3>
+                    <div class="records-table-container">
+                        <table class="records-table">
+                            <thead>
+                                <tr>
+                                    <th>应用名</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-tbody">
+                                <!-- 数据由JS生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 版权信息 -->
+    <div class="copyright">
+        本项目基于
+        <span class="author" title="QQ号: 3463448740">calyxor</span>
+        的
+        <a href="https://open.lihouse.xyz/elixir" target="_blank" class="original-link" title="QQ群:973647739">Elixir</a>
+        进行二次开发，最终服务全部由该项目提供，并非由本项目提供（感谢calyxor大佬）
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/login.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
