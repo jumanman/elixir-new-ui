@@ -58,27 +58,31 @@
             }
         },
 
-        // 检查是否有认证Cookie
+        // 检查是否已登录（使用localStorage中的登录状态标志）
         hasAuthCookie: function() {
             try {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    let c = cookies[i];
-                    while (c.charAt(0) === ' ') {
-                        c = c.substring(1);
+                const loginStatus = localStorage.getItem('elixir_loginStatus');
+                const loginTime = localStorage.getItem('elixir_loginTime');
+                
+                // 检查登录状态和有效期（24小时）
+                if (loginStatus === 'true' && loginTime) {
+                    const now = Date.now();
+                    const elapsed = now - parseInt(loginTime);
+                    if (elapsed < 24 * 60 * 60 * 1000) { // 24小时内
+                        return true;
                     }
-                    if (c.indexOf('AuthKey=') === 0) {
-                        return true; // 找到AuthKey Cookie
-                    }
+                    // 超过24小时，清除登录状态
+                    localStorage.removeItem('elixir_loginStatus');
+                    localStorage.removeItem('elixir_loginTime');
                 }
                 return false;
             } catch (e) {
-                console.error('[Elixir Cookie] 检查认证Cookie失败:', e);
+                console.error('[Elixir Cookie] 检查登录状态失败:', e);
                 return false;
             }
         },
 
-        // 获取认证Cookie
+        // 获取认证Cookie（浏览器自动管理）
         getAuthCookie: function() {
             try {
                 const cookies = document.cookie.split(';');
