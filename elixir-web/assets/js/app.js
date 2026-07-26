@@ -6,6 +6,66 @@
     let allRecords = [];
     let isLoggedIn = false; // 登录状态
 
+    // 安全请求配置
+    const SECURITY_CONFIG = {
+        ALLOWED_PROTOCOLS: ['https://'],
+        ALLOWED_DOMAINS: ['elixir.jmm666.dpdns.org']
+    };
+
+    // 安全检查：验证URL
+    function validateUrl(url) {
+        try {
+            const parsed = new URL(url);
+            if (!SECURITY_CONFIG.ALLOWED_PROTOCOLS.includes(parsed.protocol)) {
+                console.error('[Elixir安全] 不安全的协议:', parsed.protocol);
+                return false;
+            }
+            if (!SECURITY_CONFIG.ALLOWED_DOMAINS.includes(parsed.host)) {
+                console.error('[Elixir安全] 不允许的域名:', parsed.host);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('[Elixir安全] URL解析失败:', e);
+            return false;
+        }
+    }
+
+    // 安全请求包装器
+    async function safeFetch(url, options = {}) {
+        // 验证URL
+        if (!validateUrl(url)) {
+            throw new Error('请求URL验证失败');
+        }
+
+        // 添加安全请求头
+        const defaultHeaders = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Client-Version': '1.0.0',
+            'Accept': 'application/json'
+        };
+
+        const mergedOptions = {
+            ...options,
+            headers: {
+                ...defaultHeaders,
+                ...options.headers
+            },
+            credentials: 'include',
+            cache: 'no-cache'
+        };
+
+        return fetch(url, mergedOptions);
+    }
+
+    // HTML转义（防止XSS）
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // 加载隐藏的包名列表
     function loadHiddenPackages(callback) {
         try {
@@ -54,14 +114,9 @@
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
             console.log('[Elixir工具] 请求URL:', url);
 
-            const response = await fetch(url, {
+            const response = await safeFetch(url, {
                 method: 'GET',
-                mode: 'cors',
-                headers: {
-                    'Accept': 'application/json',
-                },
-                cache: 'no-cache',
-                credentials: 'include'
+                mode: 'cors'
             });
 
             if (!response.ok) {
@@ -196,6 +251,13 @@
     window.updateApk = async function(packageName) {
         if (!packageName) return;
 
+        // 安全检查：包名格式验证
+        if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
+            console.error('[Elixir安全] 无效的包名格式:', packageName);
+            alert('无效的包名格式');
+            return;
+        }
+
         // 登录检查
         if (!isLoggedIn) {
             window.showLoginModal(() => {
@@ -214,11 +276,9 @@
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.UPDATE + '/' + encodeURIComponent(packageName);
             console.log('[Elixir工具] 更新请求URL:', url);
 
-            const response = await fetch(url, {
+            const response = await safeFetch(url, {
                 method: 'GET',
-                mode: 'cors',
-                cache: 'no-cache',
-                credentials: 'include'
+                mode: 'cors'
             });
 
             if (!response.ok) {
@@ -346,13 +406,27 @@
         uploadBtn.addEventListener('click', async () => {
             // 登录检查
             if (!isLoggedIn) {
-                alert('请先登录！');
-                window.open('https://open.lihouse.xyz/elixir', '_blank');
+                window.showLoginModal(() => {
+                    checkLoginStatus();
+                });
                 return;
             }
 
             const file = fileInput.files[0];
             if (!file) return;
+
+            // 安全检查：文件类型验证
+            if (!file.name.toLowerCase().endsWith('.apk')) {
+                alert('请选择APK文件');
+                return;
+            }
+
+            // 安全检查：文件大小限制（50MB）
+            const MAX_FILE_SIZE = 50 * 1024 * 1024;
+            if (file.size > MAX_FILE_SIZE) {
+                alert('文件大小不能超过50MB');
+                return;
+            }
 
             uploadBtn.disabled = true;
             uploadBtn.textContent = '上传中...';
@@ -361,12 +435,13 @@
                 const formData = new FormData();
                 formData.append('apk', file);
 
-                const response = await fetch(API_CONFIG.BASE_URL + API_ENDPOINTS.UPLOAD, {
+                const response = await safeFetch(API_CONFIG.BASE_URL + API_ENDPOINTS.UPLOAD, {
                     method: 'POST',
                     mode: 'cors',
                     body: formData,
-                    cache: 'no-cache',
-                    credentials: 'include'
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
 
                 const data = await response.json();

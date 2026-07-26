@@ -6,13 +6,27 @@
     // 加载登录弹窗HTML
     async function loadLoginModal() {
         try {
-            const response = await fetch('assets/html/login-modal.html');
+            const response = await fetch('assets/html/login-modal.html', {
+                cache: 'no-cache'
+            });
+            if (!response.ok) {
+                throw new Error('加载失败');
+            }
             const html = await response.text();
-            document.body.insertAdjacentHTML('beforeend', html);
+            // 清理可能的XSS
+            const sanitizedHtml = sanitizeHtml(html);
+            document.body.insertAdjacentHTML('beforeend', sanitizedHtml);
             initLoginModal();
         } catch (error) {
             console.error('[Elixir登录] 加载登录弹窗失败:', error);
         }
+    }
+
+    // HTML清理（XSS防护）
+    function sanitizeHtml(html) {
+        return html.replace(/<script[^>]*>.*?<\/script>/gi, '')
+                   .replace(/on\w+\s*=\s*["'].*?["']/gi, '')
+                   .replace(/javascript:/gi, 'javascript:');
     }
 
     // 初始化登录弹窗
@@ -21,13 +35,15 @@
         const overlay = document.getElementById('login-modal-overlay');
         const closeBtn = document.getElementById('login-modal-close');
         const form = document.getElementById('login-form');
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
 
         // 关闭弹窗
         function closeModal() {
             modal.classList.remove('show');
             // 清空表单
-            document.getElementById('login-email').value = '';
-            document.getElementById('login-password').value = '';
+            emailInput.value = '';
+            passwordInput.value = '';
             clearErrors();
         }
 
@@ -49,6 +65,26 @@
                 closeModal();
             }
         });
+
+        // 邮箱实时验证
+        emailInput.addEventListener('input', () => {
+            validateEmailInput(emailInput);
+        });
+
+        // 邮箱失焦验证
+        emailInput.addEventListener('blur', () => {
+            validateEmailInput(emailInput, true);
+        });
+
+        // 密码实时验证
+        passwordInput.addEventListener('input', () => {
+            validatePasswordInput(passwordInput);
+        });
+
+        // 密码失焦验证
+        passwordInput.addEventListener('blur', () => {
+            validatePasswordInput(passwordInput, true);
+        });
     }
 
     // 验证邮箱格式
@@ -57,11 +93,69 @@
         return emailRegex.test(email);
     }
 
+    // 邮箱输入验证（实时+失焦）
+    function validateEmailInput(input, showErrorOnEmpty = false) {
+        const value = input.value.trim();
+        const errorEl = document.getElementById('email-error');
+        
+        // 清除之前的错误
+        errorEl.style.display = 'none';
+
+        // 检查长度限制
+        if (value.length > 100) {
+            showError('email-error', '邮箱长度不能超过100个字符');
+            input.classList.add('error');
+            return false;
+        }
+
+        // 失焦时检查格式
+        if (showErrorOnEmpty || value.length > 0) {
+            if (value && !validateEmail(value)) {
+                showError('email-error', '请输入有效的邮箱地址');
+                input.classList.add('error');
+                return false;
+            }
+        }
+
+        input.classList.remove('error');
+        return true;
+    }
+
+    // 密码输入验证（实时+失焦）
+    function validatePasswordInput(input, showErrorOnEmpty = false) {
+        const value = input.value;
+        const errorEl = document.getElementById('password-error');
+        
+        // 清除之前的错误
+        errorEl.style.display = 'none';
+
+        // 检查长度限制
+        if (value.length > 50) {
+            showError('password-error', '密码长度不能超过50个字符');
+            input.classList.add('error');
+            return false;
+        }
+
+        // 失焦时检查最小长度
+        if (showErrorOnEmpty || value.length > 0) {
+            if (value.length > 0 && value.length < 6) {
+                showError('password-error', '密码长度不能少于6个字符');
+                input.classList.add('error');
+                return false;
+            }
+        }
+
+        input.classList.remove('error');
+        return true;
+    }
+
     // 显示错误
     function showError(elementId, message) {
         const errorEl = document.getElementById(elementId);
         if (errorEl) {
-            errorEl.textContent = message;
+            // 清理消息中的HTML标签（XSS防护）
+            const safeMessage = message.replace(/<[^>]*>/g, '');
+            errorEl.textContent = safeMessage;
             errorEl.style.display = 'block';
         }
     }
@@ -70,12 +164,18 @@
     function clearErrors() {
         document.getElementById('email-error').style.display = 'none';
         document.getElementById('password-error').style.display = 'none';
+        
+        // 移除输入框错误样式
+        document.getElementById('login-email').classList.remove('error');
+        document.getElementById('login-password').classList.remove('error');
     }
 
     // 处理登录
     async function handleLogin() {
-        const email = document.getElementById('login-email').value.trim();
-        const password = document.getElementById('login-password').value.trim();
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
         const submitBtn = document.querySelector('.login-submit-btn');
 
         clearErrors();
@@ -83,32 +183,38 @@
         // 验证邮箱
         if (!email) {
             showError('email-error', '请输入邮箱');
+            emailInput.focus();
             return;
         }
 
         if (!validateEmail(email)) {
             showError('email-error', '请输入有效的邮箱地址');
+            emailInput.focus();
             return;
         }
 
         if (email.length > 100) {
             showError('email-error', '邮箱长度不能超过100个字符');
+            emailInput.focus();
             return;
         }
 
         // 验证密码
         if (!password) {
             showError('password-error', '请输入密码');
+            passwordInput.focus();
             return;
         }
 
         if (password.length < 6) {
             showError('password-error', '密码长度不能少于6个字符');
+            passwordInput.focus();
             return;
         }
 
         if (password.length > 50) {
             showError('password-error', '密码长度不能超过50个字符');
+            passwordInput.focus();
             return;
         }
 
@@ -118,16 +224,28 @@
 
         try {
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.LOGIN;
+            
+            // 安全检查：确保URL是合法的
+            if (!url.startsWith('https://')) {
+                throw new Error('不安全的请求协议');
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Client-Version': '1.0.0'
                 },
                 body: JSON.stringify({ email, password }),
                 credentials: 'include',
                 cache: 'no-cache'
             });
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
 
             const data = await response.json();
 
