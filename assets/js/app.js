@@ -40,7 +40,6 @@
 
         // 检查是否有认证Cookie，没有则直接拒绝请求
         if (!CookieManager.hasAuthCookie()) {
-            console.log('[Elixir工具] 没有认证Cookie，拒绝请求:', url);
             throw new Error('需要登录才能访问此功能');
         }
 
@@ -53,16 +52,11 @@
             cache: 'no-cache'
         };
 
-        console.log('[Elixir工具] 发送请求到:', url);
-        console.log('[Elixir工具] 请求头:', mergedOptions.headers);
-        console.log('[Elixir工具] 当前Cookie:', CookieManager.getAllCookies());
-
         const response = await fetch(url, mergedOptions);
         
         // 如果响应中有Set-Cookie头，存储Cookie
         if (response.headers.has('Set-Cookie')) {
             CookieManager.setCookiesFromResponse(response);
-            console.log('[Elixir工具] 响应中包含Cookie，已存储');
         }
         
         return response;
@@ -109,7 +103,6 @@
     async function fetchApkData() {
         // 首先检查是否有认证Cookie，没有则直接返回
         if (!CookieManager.hasAuthCookie()) {
-            console.log('[Elixir工具] 没有认证Cookie，跳过数据获取');
             const tbody = document.getElementById('records-tbody');
             if (tbody) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
@@ -124,7 +117,6 @@
 
         try {
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
-            console.log('[Elixir工具] 请求URL:', url);
 
             const response = await safeFetch(url, {
                 method: 'GET',
@@ -323,7 +315,6 @@
             btn.textContent = '更新中...';
 
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.UPDATE + '/' + encodeURIComponent(packageName);
-            console.log('[Elixir工具] 更新请求URL:', url);
 
             const response = await safeFetch(url, {
                 method: 'GET',
@@ -534,7 +525,6 @@
         // 首先检查Cookie中的登录状态
         try {
             const hasAuthCookie = CookieManager.hasAuthCookie();
-            console.log('[Elixir工具] 检查AuthKey Cookie:', hasAuthCookie);
             
             if (hasAuthCookie) {
                 // 有Cookie，视为已登录
