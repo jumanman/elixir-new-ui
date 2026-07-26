@@ -45,6 +45,7 @@ elixir-web/
 
 ## 安全特性
 
+- ✅ **密码 RSA 加密传输** - 客户端用 RSA-2048 公钥加密密码，Worker 用私钥解密后转发，防止明文传输
 - ✅ HttpOnly Cookie 防止 XSS 攻击
 - ✅ Secure Cookie 仅在 HTTPS 下传输
 - ✅ Origin 白名单验证（仅允许配置的源跨域访问）
@@ -63,6 +64,18 @@ elixir-web/
 - ✅ CORS 凭据仅对白名单源开放（Vary: Origin）
 - ✅ Set-Cookie 安全属性保留（仅移除 Domain，保留 HttpOnly/Secure/SameSite）
 - ✅ 请求体和响应体大小限制（防止资源耗尽）
+
+## 密码加密传输机制
+
+本项目使用 RSA 非对称加密保护用户密码传输：
+
+1. **Worker 端**：首次启动时生成 RSA-2048 密钥对，持久化到 Cloudflare KV
+2. **公钥获取**：客户端通过 `/api/pubkey` 获取公钥（带浏览器缓存）
+3. **客户端加密**：登录时用公钥加密密码（RSA-OAEP + SHA-256），发送密文
+4. **Worker 解密**：收到请求后用私钥解密，构造明文请求体转发给目标服务器
+5. **强制加密**：Worker 拒绝未加密的登录请求（缺少 `encryptedPassword` 字段）
+
+这样即使 TLS 被终止或 Worker 日志泄露，攻击者也无法获取明文密码。
 
 ## 二次开发改进
 
