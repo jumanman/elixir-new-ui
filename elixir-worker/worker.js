@@ -584,6 +584,14 @@ export default {
             return createErrorResponse(403, '不允许的请求路径', origin);
         }
 
+        // 处理公钥获取请求（Worker 本地处理，不转发到目标服务器）
+        if (targetPath === '/pubkey') {
+            if (method === 'GET') {
+                return await handleGetPublicKey(origin);
+            }
+            return createErrorResponse(405, '不允许的请求方法', origin);
+        }
+
         // 检查请求体大小（仅对POST请求）
         if (method === 'POST') {
             const contentLength = request.headers.get('Content-Length');
