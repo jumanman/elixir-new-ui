@@ -3,21 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 内容安全策略：限制资源加载来源，防止 XSS 和数据注入 -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>Elixir热更新</title>
     <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <!-- 顶部按钮容器 -->
     <div id="elixir-header-buttons">
-        <!-- 登录按钮 -->
         <button id="login-btn" class="login-btn">
           请先登录
         </button>
-        
-        <!-- 设置按钮 -->
         <div id="elixir-settings-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -26,7 +21,6 @@
         </div>
     </div>
 
-    <!-- 设置面板 -->
     <div id="elixir-settings-panel">
         <div class="settings-header">
             <span>隐藏包名</span>
@@ -40,7 +34,6 @@
         </div>
     </div>
 
-    <!-- 主内容 -->
     <div class="dashboard-container">
         <div class="dashboard-content">
             <div class="dashboard-section">
@@ -67,7 +60,6 @@
                                 </tr>
                             </thead>
                             <tbody id="records-tbody">
-                                <!-- 数据由JS生成 -->
                             </tbody>
                         </table>
                     </div>
@@ -76,7 +68,6 @@
         </div>
     </div>
 
-    <!-- 版权信息 -->
     <div class="copyright">
         本项目基于
         <span class="author" title="QQ号: 3463448740">calyxor</span>

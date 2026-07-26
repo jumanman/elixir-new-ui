@@ -1,4 +1,4 @@
-// API配置（使用相对路径，所有复杂逻辑由Worker处理）
+
 const API_CONFIG = {
     BASE_URL: ''
 };
