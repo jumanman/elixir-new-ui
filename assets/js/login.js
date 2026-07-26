@@ -230,6 +230,14 @@
                 throw new Error('不安全的请求协议');
             }
 
+            console.log('[Elixir登录] 发送登录请求到:', url);
+            console.log('[Elixir登录] 请求头:', {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Client-Version': '1.0.0'
+            });
+            console.log('[Elixir登录] 请求体:', { email, password });
+            
             const response = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
@@ -242,6 +250,9 @@
                 credentials: 'include',
                 cache: 'no-cache'
             });
+            
+            console.log('[Elixir登录] 响应状态:', response.status);
+            console.log('[Elixir登录] 响应头:', Object.fromEntries(response.headers.entries()));
 
             if (!response.ok) {
                 throw new Error('HTTP ' + response.status);
@@ -262,6 +273,26 @@
                 }
                 
                 document.getElementById('elixir-login-modal').classList.remove('show');
+                
+                // 立即发送一个测试请求以确保Cookie生效
+                setTimeout(async () => {
+                    console.log('[Elixir登录] 发送测试请求以确保Cookie生效');
+                    try {
+                        const testUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
+                        const testResponse = await fetch(testUrl, {
+                            method: 'GET',
+                            mode: 'cors',
+                            credentials: 'include',
+                            cache: 'no-cache'
+                        });
+                        console.log('[Elixir登录] 测试请求响应状态:', testResponse.status);
+                        if (testResponse.ok) {
+                            console.log('[Elixir登录] Cookie验证成功');
+                        }
+                    } catch (e) {
+                        console.error('[Elixir登录] Cookie验证失败:', e);
+                    }
+                }, 500);
                 
                 // 调用回调函数
                 if (loginCallback) {

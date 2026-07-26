@@ -169,13 +169,15 @@ button:focus {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
     text-align: center;
+    font-weight: bold;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
 }
 
 #elixir-settings-panel .settings-close-btn:hover {
@@ -225,7 +227,7 @@ button:focus {
     background: rgba(255, 255, 255, 0.05);
     color: rgba(255, 255, 255, 0.6);
     cursor: pointer;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
     flex: none;
     display: flex;
@@ -233,6 +235,8 @@ button:focus {
     justify-content: center;
     transition: all 0.2s ease;
     text-align: center;
+    font-weight: bold;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
 }
 
 #elixir-settings-panel .settings-remove-btn:hover {
@@ -773,13 +777,15 @@ button:focus {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
     text-align: center;
+    font-weight: bold;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
 }
 
 .login-modal-close:hover {
