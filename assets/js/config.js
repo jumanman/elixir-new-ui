@@ -7,5 +7,6 @@ const API_ENDPOINTS = {
     GET_APKS: '/api/get_apks',
     UPLOAD: '/api/upload',
     UPDATE: '/api/update',
-    LOGIN: '/api/login'
+    LOGIN: '/api/login',
+    DOWNLOAD: '/api/download'
 };

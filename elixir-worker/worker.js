@@ -16,8 +16,11 @@ const RATE_LIMIT = {
 // 请求体大小限制（50MB）
 const MAX_BODY_SIZE = 50 * 1024 * 1024;
 
-// 响应大小限制（10MB）
+// 响应大小限制（10MB - API响应）
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
+
+// 下载响应大小限制（100MB - APK文件可能较大）
+const MAX_DOWNLOAD_RESPONSE_SIZE = 100 * 1024 * 1024;
 
 // 路径白名单（只允许这些路径）
 const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login', '/download'];
@@ -226,17 +229,17 @@ async function forwardRequest(request, origin) {
         const safePath = filePath.startsWith('/') ? filePath : '/' + filePath;
         const targetUrl = TARGET_ORIGIN + safePath;
 
-        // 下载请求复用通用转发逻辑
-        return await proxyToTarget(request, targetUrl, origin);
+        // 下载请求复用通用转发逻辑（使用更大的响应大小限制）
+        return await proxyToTarget(request, targetUrl, origin, MAX_DOWNLOAD_RESPONSE_SIZE);
     }
 
     const targetUrl = TARGET_ORIGIN + targetPath + url.search;
 
-    return await proxyToTarget(request, targetUrl, origin);
+    return await proxyToTarget(request, targetUrl, origin, MAX_RESPONSE_SIZE);
 }
 
 // 通用代理到目标服务器（提取公共逻辑）
-async function proxyToTarget(request, targetUrl, origin) {
+async function proxyToTarget(request, targetUrl, origin, maxResponseSize) {
 
     // 复制请求头（保留用户真实的浏览器标识）
     const headers = new Headers(request.headers);
@@ -264,7 +267,7 @@ async function proxyToTarget(request, targetUrl, origin) {
 
     // 检查响应大小
     const contentLength = response.headers.get('Content-Length');
-    if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
+    if (contentLength && parseInt(contentLength) > maxResponseSize) {
         return createErrorResponse(413, `响应过大 (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB)`, origin);
     }
 
@@ -272,7 +275,7 @@ async function proxyToTarget(request, targetUrl, origin) {
     const responseHeaders = new Headers(response.headers);
 
     // 添加响应大小限制头
-    responseHeaders.set('X-Max-Response-Size', MAX_RESPONSE_SIZE.toString());
+    responseHeaders.set('X-Max-Response-Size', maxResponseSize.toString());
 
     // 如果响应没有Content-Length，我们需要流式读取并限制大小
     if (!contentLength) {
@@ -286,7 +289,7 @@ async function proxyToTarget(request, targetUrl, origin) {
                 if (done) break;
 
                 totalBytes += value.length;
-                if (totalBytes > MAX_RESPONSE_SIZE) {
+                if (totalBytes > maxResponseSize) {
                     throw new Error('响应过大');
                 }
                 chunks.push(value);
@@ -299,6 +302,13 @@ async function proxyToTarget(request, targetUrl, origin) {
                 body.set(chunk, offset);
                 offset += chunk.length;
             }
+
+            // 添加 CORS 头和安全响应头到流式响应
+            const corsHeaders = getCorsHeaders(origin);
+            Object.keys(corsHeaders).forEach(key => {
+                responseHeaders.set(key, corsHeaders[key]);
+            });
+            applySecurityHeaders(responseHeaders);
 
             // 返回限制大小的响应
             return new Response(body, {
