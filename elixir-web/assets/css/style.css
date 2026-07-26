@@ -858,3 +858,9 @@ button:focus {
     text-align: center;
     line-height: 1.5;
 }
+
+/* 输入框错误样式 */
+.login-modal-body .form-group input.error {
+    border-color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+}
