@@ -38,16 +38,18 @@
             throw new Error('请求URL验证失败');
         }
 
+        // 检查是否有认证Cookie，没有则直接拒绝请求
+        if (!CookieManager.hasAuthCookie()) {
+            console.log('[Elixir工具] 没有认证Cookie，拒绝请求:', url);
+            throw new Error('需要登录才能访问此功能');
+        }
+
         // 添加安全请求头
         const defaultHeaders = {
             'X-Requested-With': 'XMLHttpRequest',
             'X-Client-Version': '1.0.0',
             'Accept': 'application/json'
         };
-
-        if (!CookieManager.hasAuthCookie()) {
-            defaultHeaders['Referer'] = 'https://open.lihouse.xyz/elixir';
-        }
 
         const mergedOptions = {
             ...options,
@@ -113,7 +115,9 @@
 
     // 获取APK数据
     async function fetchApkData() {
-        if (!isLoggedIn) {
+        // 首先检查是否有认证Cookie，没有则直接返回
+        if (!CookieManager.hasAuthCookie()) {
+            console.log('[Elixir工具] 没有认证Cookie，跳过数据获取');
             const tbody = document.getElementById('records-tbody');
             if (tbody) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
@@ -168,6 +172,8 @@
             // 跨域回退方案
             if (error.name === 'TypeError' && error.message.includes('CORS')) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">跨域访问被限制，请检查后端配置</td></tr>';
+            } else if (error.message.includes('需要登录才能访问此功能')) {
+                tbody.innerHTML = '<tr><td colspan="3" class="no-records">登录已过期，请重新登录</td></tr>';
             } else {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">网络请求失败: ' + error.message + '</td></tr>';
             }
@@ -200,37 +206,72 @@
 
             const statusInfo = statusMap[record.status] || { text: '未知', class: 'success' };
 
-            tr.innerHTML = `
-                <td>
-                    <div class="elixir-text-container">
-                        <span class="elixir-package-text">${record.appName}</span>
-                        <span class="elixir-package-name">${record.pkgName}</span>
-                    </div>
-                </td>
-                <td>
-                    <span class="status-badge ${statusInfo.class}">${statusInfo.text}</span>
-                </td>
-                <td>
-                    <button class="download-btn download-apk-btn">下载</button>
-                    <button class="download-btn update-apk-btn" style="margin-left: 0.5rem;">更新</button>
-                </td>
-            `;
+            // 创建第一个td：应用名和包名
+            const appNameTd = document.createElement('td');
+            appNameTd.className = 'package-name tooltip-container';
+            
+            // 创建tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = `包名: ${record.pkgName}`;
+            
+            // 创建elixir-text-container
+            const textContainer = document.createElement('div');
+            textContainer.className = 'elixir-text-container';
+            
+            // 创建应用名span
+            const appNameSpan = document.createElement('span');
+            appNameSpan.className = 'elixir-package-text';
+            appNameSpan.textContent = record.appName;
+            
+            // 创建包名span
+            const pkgNameSpan = document.createElement('span');
+            pkgNameSpan.className = 'elixir-package-name';
+            pkgNameSpan.textContent = record.pkgName;
+            
+            // 组装结构
+            textContainer.appendChild(appNameSpan);
+            textContainer.appendChild(pkgNameSpan);
+            appNameTd.appendChild(textContainer);
+            appNameTd.appendChild(tooltip);
 
-            // 添加下载按钮事件监听
-            const downloadBtn = tr.querySelector('.download-apk-btn');
-            if (downloadBtn) {
-                downloadBtn.addEventListener('click', () => {
-                    downloadApk(record.apkUrl);
-                });
+            // 创建第二个td：状态
+            const statusTd = document.createElement('td');
+            const statusBadge = document.createElement('span');
+            statusBadge.className = `status-badge ${statusInfo.class}`;
+            statusBadge.textContent = statusInfo.text;
+            statusTd.appendChild(statusBadge);
+
+            // 创建第三个td：操作按钮
+            const actionTd = document.createElement('td');
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.textContent = '下载';
+            downloadBtn.addEventListener('click', () => {
+                downloadApk(record.apkUrl);
+            });
+
+            const updateBtn = document.createElement('button');
+            updateBtn.className = 'download-btn';
+            updateBtn.style.marginLeft = '0.5rem';
+            updateBtn.textContent = '更新';
+            updateBtn.addEventListener('click', () => {
+                updateApk(record.pkgName);
+            });
+
+            actionTd.appendChild(downloadBtn);
+            actionTd.appendChild(updateBtn);
+
+            // 检查是否需要隐藏该行
+            if (shouldHidePackage(record.pkgName)) {
+                tr.setAttribute('data-elixir-hidden', 'true');
+                tr.style.display = 'none !important';
             }
 
-            // 添加更新按钮事件监听
-            const updateBtn = tr.querySelector('.update-apk-btn');
-            if (updateBtn) {
-                updateBtn.addEventListener('click', () => {
-                    updateApk(record.pkgName);
-                });
-            }
+            // 组装行
+            tr.appendChild(appNameTd);
+            tr.appendChild(statusTd);
+            tr.appendChild(actionTd);
 
             tbody.appendChild(tr);
         });
@@ -494,7 +535,7 @@
         }
     }
 
-    // 检测是否已登录（通过Cookie和API验证）
+    // 检测是否已登录（通过Cookie验证）
     async function checkLoginStatus() {
         const loginBtn = document.getElementById('login-btn');
 
@@ -504,12 +545,23 @@
             console.log('[Elixir工具] 检查AuthKey Cookie:', hasAuthCookie);
             
             if (hasAuthCookie) {
-                // 有Cookie，先视为已登录，但需要API验证
-                isLoggedIn = false; // 先设为false，等待API验证
+                // 有Cookie，视为已登录
+                isLoggedIn = true;
+                if (loginBtn) {
+                    loginBtn.classList.add('hidden');
+                }
                 
                 // 保存登录状态到localStorage
                 localStorage.setItem('elixir_loginStatus', 'true');
                 localStorage.setItem('elixir_loginTime', Date.now().toString());
+                
+                // 有Cookie才进行API请求获取数据
+                try {
+                    await fetchApkData();
+                } catch (error) {
+                    console.error('[Elixir工具] 获取数据失败:', error);
+                    // 即使API失败，只要有Cookie就认为已登录
+                }
             } else {
                 // 没有Cookie，检查localStorage
                 const storedStatus = localStorage.getItem('elixir_loginStatus');
@@ -526,48 +578,29 @@
                     }
                 }
                 isLoggedIn = false;
+                if (loginBtn) {
+                    loginBtn.classList.remove('hidden');
+                }
+                
+                // 没有Cookie，不进行任何API请求，直接显示未登录状态
+                const tbody = document.getElementById('records-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
+                }
             }
         } catch (e) {
             console.error('[Elixir工具] 读取登录状态失败:', e);
             isLoggedIn = false;
-        }
-
-        // 通过API验证登录状态
-        try {
-            const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
-            console.log('[Elixir工具] 验证登录状态，请求URL:', url);
-            
-            const response = await safeFetch(url, {
-                method: 'GET',
-                mode: 'cors'
-            });
-
-            const data = await response.json();
-            console.log('[Elixir工具] API验证响应:', data);
-
-            if (data.status && data.apks) {
-                // 已登录
-                isLoggedIn = true;
-                if (loginBtn) {
-                    loginBtn.classList.add('hidden');
-                }
-            } else {
-                // 未登录
-                isLoggedIn = false;
-                if (loginBtn) {
-                    loginBtn.classList.remove('hidden');
-                }
-            }
-        } catch (error) {
-            // 请求失败，视为未登录
-            isLoggedIn = false;
             if (loginBtn) {
                 loginBtn.classList.remove('hidden');
             }
+            
+            // 异常情况下也不进行API请求
+            const tbody = document.getElementById('records-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
+            }
         }
-
-        // 登录状态确定后再加载数据
-        fetchApkData();
     }
 
     // 初始化
