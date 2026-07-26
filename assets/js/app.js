@@ -382,17 +382,24 @@
             }
         });
 
-        // 创建包名输入项
+        // 创建包名输入项（使用 DOM API 避免 XSS）
         function createPackageItem(value = '') {
             const item = document.createElement('div');
             item.className = 'settings-item';
-            item.innerHTML = `
-                <input type="text" placeholder="输入包名" value="${value}">
-                <button class="settings-remove-btn">×</button>
-            `;
 
-            const input = item.querySelector('input');
-            const removeBtn = item.querySelector('.settings-remove-btn');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = '输入包名';
+            // 使用 setAttribute 安全设置 value（自动转义）
+            input.setAttribute('value', String(value || ''));
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'settings-remove-btn';
+            removeBtn.type = 'button';
+            removeBtn.textContent = '×';
+
+            item.appendChild(input);
+            item.appendChild(removeBtn);
 
             input.addEventListener('input', savePackages);
 
