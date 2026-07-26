@@ -7,23 +7,40 @@
     let isLoggedIn = false; // 登录状态
 
     // 安全请求配置
-    const SECURITY_CONFIG = {
-        ALLOWED_PROTOCOLS: ['https://'],
-        ALLOWED_DOMAINS: ['elixir.jmm666.dpdns.org']
-    };
+const SECURITY_CONFIG = {
+    ALLOWED_PROTOCOLS: ['https://'],
+    get ALLOWED_DOMAINS() {
+        // 支持当前域名和开发环境
+        const currentDomain = window.location.hostname;
+        const domains = [currentDomain];
+        
+        // 开发环境额外支持localhost
+        if (currentDomain === 'localhost' || currentDomain === '127.0.0.1') {
+            domains.push('localhost', '127.0.0.1');
+        }
+        
+        return domains;
+    }
+};
 
     // 安全检查：验证URL
     function validateUrl(url) {
         try {
-            const parsed = new URL(url);
-            if (!SECURITY_CONFIG.ALLOWED_PROTOCOLS.includes(parsed.protocol)) {
-                console.error('[Elixir安全] 不安全的协议:', parsed.protocol);
+            const parsedUrl = new URL(url);
+            
+            // 检查协议
+            if (!SECURITY_CONFIG.ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
+                console.error('[Elixir安全] 不允许的协议:', parsedUrl.protocol);
                 return false;
             }
-            if (!SECURITY_CONFIG.ALLOWED_DOMAINS.includes(parsed.host)) {
-                console.error('[Elixir安全] 不允许的域名:', parsed.host);
+            
+            // 检查域名（动态获取最新域名列表）
+            const allowedDomains = SECURITY_CONFIG.ALLOWED_DOMAINS;
+            if (!allowedDomains.includes(parsedUrl.hostname)) {
+                console.error('[Elixir安全] 不允许的域名:', parsedUrl.hostname);
                 return false;
             }
+            
             return true;
         } catch (e) {
             console.error('[Elixir安全] URL解析失败:', e);

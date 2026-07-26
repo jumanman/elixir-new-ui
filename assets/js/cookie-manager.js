@@ -81,15 +81,31 @@
                     for (let cookie of cookies) {
                         // 处理可能的多个Set-Cookie头
                         const parts = cookie.split(';');
-                        const [nameValue] = parts[0].split('=');
-                        const name = nameValue.trim();
-                        const value = parts[0].substring(name.length + 1).trim();
+                        
+                        // 健壮的Cookie解析：处理值中包含=的情况
+                        const cookiePair = parts[0].trim();
+                        const firstEqualIndex = cookiePair.indexOf('=');
+                        
+                        if (firstEqualIndex === -1) {
+                            continue; // 跳过无效的Cookie
+                        }
+                        
+                        const name = cookiePair.substring(0, firstEqualIndex).trim();
+                        const value = cookiePair.substring(firstEqualIndex + 1).trim();
+                        
+                        // 验证Cookie名称不为空
+                        if (!name) {
+                            continue;
+                        }
                         
                         // 提取过期时间
                         let expires = 30; // 默认30天
                         for (let part of parts) {
                             if (part.trim().startsWith('Max-Age=')) {
                                 expires = parseInt(part.trim().substring(8));
+                                if (isNaN(expires) || expires < 0) {
+                                    expires = 30; // 无效值使用默认
+                                }
                                 break;
                             }
                         }
