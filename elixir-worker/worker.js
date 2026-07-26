@@ -6,6 +6,9 @@ const ALLOWED_ORIGINS = [
 // KV存储绑定（通过wrangler.toml配置）
 let RATE_LIMIT_KV = null;
 
+// RSA密钥对缓存（用于密码加密传输，从KV加载或运行时生成）
+let cryptoKeyPair = null;
+
 // 请求速率限制配置
 const RATE_LIMIT = {
     windowMs: 60 * 1000, // 1分钟窗口
@@ -23,7 +26,7 @@ const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const MAX_DOWNLOAD_RESPONSE_SIZE = 100 * 1024 * 1024;
 
 // 路径白名单（只允许这些路径）
-const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login', '/download'];
+const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login', '/download', '/pubkey'];
 
 // 允许下载的文件扩展名（防止通过下载端点代理任意文件）
 const ALLOWED_DOWNLOAD_EXTENSIONS = ['.apk'];
@@ -195,6 +198,121 @@ function applySecurityHeaders(headers) {
     ].join('; '));
 }
 
+// ============== RSA 密钥对管理（用于密码加密传输）==============
+
+// 获取或生成 RSA 密钥对（优先从 KV 加载以实现跨实例一致性）
+async function getKeyPair() {
+    if (cryptoKeyPair) return cryptoKeyPair;
+
+    // 尝试从 KV 读取已持久化的密钥对
+    if (RATE_LIMIT_KV) {
+        try {
+            const stored = await RATE_LIMIT_KV.get('crypto_keypair', 'json');
+            if (stored && stored.publicKey && stored.privateKey) {
+                cryptoKeyPair = {
+                    publicKey: await crypto.subtle.importKey(
+                        'jwk', stored.publicKey,
+                        { name: 'RSA-OAEP', hash: 'SHA-256' },
+                        true, ['encrypt']
+                    ),
+                    privateKey: await crypto.subtle.importKey(
+                        'jwk', stored.privateKey,
+                        { name: 'RSA-OAEP', hash: 'SHA-256' },
+                        false, ['decrypt']
+                    )
+                };
+                return cryptoKeyPair;
+            }
+        } catch (e) {
+            console.error('[Elixir Worker] 从KV读取密钥对失败:', e);
+        }
+    }
+
+    // 生成新的 RSA-2048 密钥对
+    try {
+        const keyPair = await crypto.subtle.generateKey(
+            {
+                name: 'RSA-OAEP',
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: 'SHA-256'
+            },
+            true,
+            ['encrypt', 'decrypt']
+        );
+
+        // 导出 JWK 并持久化到 KV（避免不同 Worker 实例生成不同密钥对）
+        const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+        if (RATE_LIMIT_KV) {
+            try {
+                await RATE_LIMIT_KV.put('crypto_keypair', JSON.stringify({
+                    publicKey: publicKeyJwk,
+                    privateKey: privateKeyJwk
+                }));
+            } catch (e) {
+                console.error('[Elixir Worker] 存储密钥对到KV失败:', e);
+            }
+        }
+
+        cryptoKeyPair = keyPair;
+        return cryptoKeyPair;
+    } catch (e) {
+        console.error('[Elixir Worker] 生成RSA密钥对失败:', e);
+        throw e;
+    }
+}
+
+// 处理公钥获取请求（Worker 本地处理，不转发到目标服务器）
+async function handleGetPublicKey(origin) {
+    try {
+        const keyPair = await getKeyPair();
+        const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+        const corsHeaders = getCorsHeaders(origin);
+        Object.keys(corsHeaders).forEach(key => {
+            headers.set(key, corsHeaders[key]);
+        });
+        applySecurityHeaders(headers);
+        // 公钥可被浏览器缓存一段时间，减少请求次数
+        headers.set('Cache-Control', 'public, max-age=3600');
+
+        return new Response(JSON.stringify({ publicKey: publicKeyJwk }), {
+            status: 200,
+            headers
+        });
+    } catch (e) {
+        console.error('[Elixir Worker] 获取公钥失败:', e);
+        return createErrorResponse(500, '密钥生成失败', origin);
+    }
+}
+
+// 使用私钥解密客户端加密的密码
+async function decryptPassword(encryptedBase64) {
+    const keyPair = await getKeyPair();
+
+    // Base64 解码为 Uint8Array
+    const binaryString = atob(encryptedBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // 使用 RSA-OAEP 解密
+    const decrypted = await crypto.subtle.decrypt(
+        { name: 'RSA-OAEP' },
+        keyPair.privateKey,
+        bytes
+    );
+
+    // 转为 UTF-8 字符串
+    return new TextDecoder().decode(decrypted);
+}
+
+// ============== RSA 密钥对管理结束 ==============
+
 // 转发请求到目标服务器
 async function forwardRequest(request, origin) {
     const url = new URL(request.url);
@@ -233,13 +351,37 @@ async function forwardRequest(request, origin) {
         return await proxyToTarget(request, targetUrl, origin, MAX_DOWNLOAD_RESPONSE_SIZE);
     }
 
+    // 登录端点特殊处理：解密客户端用 RSA 公钥加密的密码
+    // 解密后构造明文请求体转发给目标服务器（目标服务器期望明文密码）
+    if (targetPath === '/login' && request.method === 'POST') {
+        try {
+            const originalBody = await request.json();
+            // 强制要求加密密码字段（防止明文传输）
+            if (!originalBody.encryptedPassword) {
+                return createErrorResponse(400, '缺少加密密码字段', origin);
+            }
+            // 解密密码
+            const decryptedPassword = await decryptPassword(originalBody.encryptedPassword);
+            // 构造新的明文请求体转发给目标服务器
+            const newBody = JSON.stringify({
+                email: originalBody.email,
+                password: decryptedPassword
+            });
+            const targetUrl = TARGET_ORIGIN + targetPath + url.search;
+            return await proxyToTarget(request, targetUrl, origin, MAX_RESPONSE_SIZE, newBody);
+        } catch (e) {
+            console.error('[Elixir Worker] 密码解密失败:', e);
+            return createErrorResponse(400, '密码解密失败', origin);
+        }
+    }
+
     const targetUrl = TARGET_ORIGIN + targetPath + url.search;
 
     return await proxyToTarget(request, targetUrl, origin, MAX_RESPONSE_SIZE);
 }
 
 // 通用代理到目标服务器（提取公共逻辑）
-async function proxyToTarget(request, targetUrl, origin, maxResponseSize) {
+async function proxyToTarget(request, targetUrl, origin, maxResponseSize, customBody) {
 
     // 复制请求头（保留用户真实的浏览器标识）
     const headers = new Headers(request.headers);

@@ -8,5 +8,6 @@ const API_ENDPOINTS = {
     UPLOAD: '/api/upload',
     UPDATE: '/api/update',
     LOGIN: '/api/login',
-    DOWNLOAD: '/api/download'
+    DOWNLOAD: '/api/download',
+    PUBKEY: '/api/pubkey'
 };
