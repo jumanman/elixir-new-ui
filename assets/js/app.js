@@ -250,7 +250,7 @@
             downloadBtn.className = 'download-btn';
             downloadBtn.textContent = '下载';
             downloadBtn.addEventListener('click', () => {
-                downloadApk(record.apkUrl);
+                downloadApk(record.apkUrl, record.appName, record.pkgName);
             });
 
             const updateBtn = document.createElement('button');
@@ -280,8 +280,20 @@
         });
     }
 
-    // 下载APK（通过代理）
-    window.downloadApk = function(url) {
+    // 清理文件名中的非法字符（Windows/Linux/Mac 通用）
+    // 文件名不能包含：\ / : * ? " < > | 以及控制字符
+    function sanitizeFilename(name) {
+        if (!name) return '';
+        return String(name)
+            .replace(/[\\/:*?"<>|]/g, '_')   // 替换非法字符为下划线
+            .replace(/[\x00-\x1f]/g, '')    // 移除控制字符
+            .replace(/^\.+/, '')             // 移除开头的点（防止隐藏文件）
+            .trim()
+            .slice(0, 100);                  // 限制长度，避免文件名过长
+    }
+
+    // 下载APK（通过代理，使用应用名称和包名重命名文件）
+    window.downloadApk = function(url, appName, pkgName) {
         if (!url) return;
 
         // 登录检查
@@ -308,9 +320,28 @@
             return;
         }
 
+        // 构造下载文件名：应用名称(包名).apk
+        // 清理应用名称和包名中的非法字符，避免文件系统错误
+        const safeAppName = sanitizeFilename(appName);
+        const safePkgName = sanitizeFilename(pkgName);
+        let downloadName;
+        if (safeAppName && safePkgName) {
+            downloadName = `${safeAppName}(${safePkgName}).apk`;
+        } else if (safeAppName) {
+            downloadName = `${safeAppName}.apk`;
+        } else if (safePkgName) {
+            downloadName = `${safePkgName}.apk`;
+        } else {
+            // 应用名称和包名都缺失，回退到URL中的文件名
+            downloadName = (url.split('/').pop() || 'download.apk');
+            if (!downloadName.toLowerCase().endsWith('.apk')) {
+                downloadName += '.apk';
+            }
+        }
+
         const a = document.createElement('a');
         a.href = proxyUrl;
-        a.download = url.split('/').pop() || 'download.apk';
+        a.download = downloadName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
