@@ -257,7 +257,8 @@
             // 检查是否需要隐藏该行
             if (shouldHidePackage(record.pkgName)) {
                 tr.setAttribute('data-elixir-hidden', 'true');
-                tr.style.display = 'none !important';
+                // 使用 setProperty 正确设置 !important（style.display 无法设置优先级）
+                tr.style.setProperty('display', 'none', 'important');
             }
 
             // 组装行
@@ -451,10 +452,21 @@
             const file = e.target.files[0];
             if (file) {
                 uploadBtn.disabled = false;
-                fileLabel.innerHTML = `<span class="upload-icon">📄</span> ${file.name}`;
+                // 安全设置文件名（避免 XSS）：使用 DOM API 而非 innerHTML
+                fileLabel.textContent = '';
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'upload-icon';
+                iconSpan.textContent = '📄';
+                fileLabel.appendChild(iconSpan);
+                fileLabel.appendChild(document.createTextNode(' ' + file.name));
             } else {
                 uploadBtn.disabled = true;
-                fileLabel.innerHTML = '<span class="upload-icon">📁</span> 选择APK文件';
+                fileLabel.textContent = '';
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'upload-icon';
+                iconSpan.textContent = '📁';
+                fileLabel.appendChild(iconSpan);
+                fileLabel.appendChild(document.createTextNode(' 选择APK文件'));
             }
         });
 
@@ -513,7 +525,13 @@
             } finally {
                 uploadBtn.textContent = '上传并改包';
                 fileInput.value = '';
-                fileLabel.innerHTML = '<span class="upload-icon">📁</span> 选择APK文件';
+                // 安全重置文件标签（避免 XSS）
+                fileLabel.textContent = '';
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'upload-icon';
+                iconSpan.textContent = '📁';
+                fileLabel.appendChild(iconSpan);
+                fileLabel.appendChild(document.createTextNode(' 选择APK文件'));
             }
         });
     }

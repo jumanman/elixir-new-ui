@@ -20,7 +20,10 @@ const MAX_BODY_SIZE = 50 * 1024 * 1024;
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 
 // 路径白名单（只允许这些路径）
-const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login'];
+const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login', '/download'];
+
+// 允许下载的文件扩展名（防止通过下载端点代理任意文件）
+const ALLOWED_DOWNLOAD_EXTENSIONS = ['.apk'];
 
 // 方法白名单
 const ALLOWED_METHODS = ['GET', 'POST', 'OPTIONS'];
@@ -86,17 +89,15 @@ function getCorsHeaders(origin) {
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Cookie, X-Requested-With, X-Client-Version',
         'Access-Control-Max-Age': '86400'
     };
-    
-    // 如果请求来自允许的源，设置具体的Origin并允许凭据
+
+    // 仅允许白名单中的源访问并携带凭据
     if (origin && ALLOWED_ORIGINS.includes(origin)) {
         headers['Access-Control-Allow-Origin'] = origin;
         headers['Access-Control-Allow-Credentials'] = 'true';
-    } else {
-        // 对于不在白名单中的源，不允许凭据（安全考虑）
-        headers['Access-Control-Allow-Origin'] = origin || '*';
-        // 不设置 Access-Control-Allow-Credentials
+        headers['Vary'] = 'Origin';
     }
-    
+    // 非白名单源不设置 Access-Control-Allow-Origin，浏览器将阻止跨域读取
+
     return headers;
 }
 
@@ -107,14 +108,19 @@ const PATH_MAP = {
     '/login': '/web/login'
 };
 
-// 创建错误响应
-function createErrorResponse(status, message) {
+// 创建错误响应（传入请求Origin以便正确设置CORS头）
+function createErrorResponse(status, message, origin) {
+    const headers = new Headers({
+        'Content-Type': 'application/json'
+    });
+    const corsHeaders = getCorsHeaders(origin);
+    Object.keys(corsHeaders).forEach(key => {
+        headers.set(key, corsHeaders[key]);
+    });
+    applySecurityHeaders(headers);
     return new Response(JSON.stringify({ status: false, reason: message }), {
         status,
-        headers: {
-            'Content-Type': 'application/json',
-            ...getCorsHeaders('*')
-        }
+        headers
     });
 }
 
@@ -122,9 +128,11 @@ function createErrorResponse(status, message) {
 function handleOptions(request) {
     const origin = request.headers.get('Origin');
     const corsHeaders = getCorsHeaders(origin);
-    
+    const headers = new Headers(corsHeaders);
+    applySecurityHeaders(headers);
+
     return new Response(null, {
-        headers: corsHeaders,
+        headers,
         status: 204
     });
 }
@@ -147,36 +155,102 @@ function validateMethod(method) {
     return ALLOWED_METHODS.includes(method);
 }
 
+// 添加安全响应头（CSP/HSTS/XSS防护等纵深防御）
+function applySecurityHeaders(headers) {
+    // 防止 MIME 类型嗅探
+    headers.set('X-Content-Type-Options', 'nosniff');
+    // 禁止页面被嵌入 iframe（防止点击劫持）
+    headers.set('X-Frame-Options', 'DENY');
+    // 启用浏览器 XSS 过滤器（旧版浏览器兼容）
+    headers.set('X-XSS-Protection', '1; mode=block');
+    // 控制 Referrer 信息泄露
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // 强制 HTTPS（1年，包含子域名）
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    // 内容安全策略：限制资源加载来源，防止 XSS 和数据注入
+    // - default-src 'self'：默认只允许同源资源
+    // - script-src 'self'：脚本只能来自同源
+    // - style-src 'self' 'unsafe-inline'：样式允许同源和内联（现有样式需要）
+    // - img-src 'self' data:：图片允许同源和 data URI
+    // - connect-src 'self'：AJAX/fetch 只能连接同源
+    // - font-src 'self'：字体只能来自同源
+    // - object-src 'none'：禁止 <object>/<embed>
+    // - frame-ancestors 'none'：禁止被嵌入（等价于 X-Frame-Options: DENY）
+    // - base-uri 'self'：限制 <base> 标签
+    // - form-action 'self'：限制表单提交目标
+    headers.set('Content-Security-Policy', [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        "font-src 'self'",
+        "object-src 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'"
+    ].join('; '));
+}
+
 // 转发请求到目标服务器
-async function forwardRequest(request) {
+async function forwardRequest(request, origin) {
     const url = new URL(request.url);
-    
+
     // 构建目标 URL：去掉 /api 前缀
     let targetPath = url.pathname;
     if (targetPath.startsWith('/api')) {
         targetPath = targetPath.slice(4);
     }
-    
+
     // 路径映射：简化路径转原始路径
     if (PATH_MAP[targetPath]) {
         targetPath = PATH_MAP[targetPath];
     }
-    
+
+    // 下载端点特殊处理：通过 path 查询参数指定目标文件路径
+    if (targetPath === '/download') {
+        const filePath = url.searchParams.get('path');
+        if (!filePath) {
+            return createErrorResponse(400, '缺少文件路径参数', origin);
+        }
+        // 安全校验：防止路径遍历
+        if (/\.{2}/.test(filePath) || filePath.includes('\0')) {
+            return createErrorResponse(403, '非法文件路径', origin);
+        }
+        // 校验文件扩展名
+        const lowerPath = filePath.toLowerCase();
+        if (!ALLOWED_DOWNLOAD_EXTENSIONS.some(ext => lowerPath.endsWith(ext))) {
+            return createErrorResponse(403, '不允许的文件类型', origin);
+        }
+        // 确保路径以 / 开头
+        const safePath = filePath.startsWith('/') ? filePath : '/' + filePath;
+        const targetUrl = TARGET_ORIGIN + safePath;
+
+        // 下载请求复用通用转发逻辑
+        return await proxyToTarget(request, targetUrl, origin);
+    }
+
     const targetUrl = TARGET_ORIGIN + targetPath + url.search;
-    
+
+    return await proxyToTarget(request, targetUrl, origin);
+}
+
+// 通用代理到目标服务器（提取公共逻辑）
+async function proxyToTarget(request, targetUrl, origin) {
+
     // 复制请求头（保留用户真实的浏览器标识）
     const headers = new Headers(request.headers);
-    
+
     // 伪装关键请求头，让服务器认为是同源请求
     headers.set('Host', new URL(TARGET_ORIGIN).host);
     headers.set('Origin', TARGET_ORIGIN);
     headers.set('Referer', TARGET_ORIGIN + '/');
     headers.set('Sec-Fetch-Site', 'same-origin');
-    
+
     // 删除可能暴露跨域的头
     headers.delete('CF-Connecting-IP');
     headers.delete('X-Forwarded-For');
-    
+
     // 创建转发请求
     const forwardRequest = new Request(targetUrl, {
         method: request.method,
@@ -184,40 +258,40 @@ async function forwardRequest(request) {
         body: request.body,
         redirect: 'follow'
     });
-    
+
     // 发送请求并获取响应
     const response = await fetch(forwardRequest);
-    
+
     // 检查响应大小
     const contentLength = response.headers.get('Content-Length');
     if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
-        return createErrorResponse(413, `响应过大 (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB)`);
+        return createErrorResponse(413, `响应过大 (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB)`, origin);
     }
-    
+
     // 创建新的响应，添加 CORS 头
     const responseHeaders = new Headers(response.headers);
-    
+
     // 添加响应大小限制头
     responseHeaders.set('X-Max-Response-Size', MAX_RESPONSE_SIZE.toString());
-    
+
     // 如果响应没有Content-Length，我们需要流式读取并限制大小
     if (!contentLength) {
         let totalBytes = 0;
         const reader = response.body.getReader();
         const chunks = [];
-        
+
         try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                
+
                 totalBytes += value.length;
                 if (totalBytes > MAX_RESPONSE_SIZE) {
                     throw new Error('响应过大');
                 }
                 chunks.push(value);
             }
-            
+
             // 创建新的响应体
             const body = new Uint8Array(totalBytes);
             let offset = 0;
@@ -225,7 +299,7 @@ async function forwardRequest(request) {
                 body.set(chunk, offset);
                 offset += chunk.length;
             }
-            
+
             // 返回限制大小的响应
             return new Response(body, {
                 status: response.status,
@@ -233,41 +307,48 @@ async function forwardRequest(request) {
                 headers: responseHeaders
             });
         } catch (e) {
-            return createErrorResponse(413, '响应过大');
+            return createErrorResponse(413, '响应过大', origin);
         }
     }
-    
-    // 处理 Cookie：重写Set-Cookie头以支持跨域存储（保留安全属性）
-    const setCookieHeader = response.headers.get('Set-Cookie');
-    if (setCookieHeader) {
-        // 重写Cookie：只移除Domain（跨域不匹配），保留HttpOnly/Secure/SameSite等安全属性
-        let rewrittenCookie = setCookieHeader
-            .replace(/Domain=[^;]+;/gi, '')           // 移除Domain属性（跨域不匹配）
-            .replace(/Domain=[^;]+$/gi, '')          // 移除末尾的Domain
-            .replace(/\s*;\s*/g, '; ')               // 清理多余分号
-            .replace(/;\s*$/g, '');                  // 移除末尾分号
-        
-        responseHeaders.set('Set-Cookie', rewrittenCookie);
+
+    // 处理 Set-Cookie：使用 getAll 获取所有 Cookie（支持多个 Set-Cookie 头）
+    // 逐个重写，仅移除 Domain 属性，保留 HttpOnly/Secure/SameSite 等安全属性
+    const setCookies = response.headers.getAll ? response.headers.getAll('Set-Cookie') : [];
+    if (setCookies.length > 0) {
+        responseHeaders.delete('Set-Cookie');
+        setCookies.forEach(cookie => {
+            // 仅移除 Domain 属性（跨域不匹配），保留其他所有安全属性
+            // 使用大小写不敏感匹配，处理 Domain 出现在中间或末尾的情况
+            const rewritten = cookie
+                .replace(/\s*;\s*Domain=[^;]+/gi, '')   // 移除中间或末尾的 Domain=...
+                .replace(/^\s*Domain=[^;]+;?\s*/i, '')   // 移除开头的 Domain=...
+                .trim();
+            if (rewritten) {
+                responseHeaders.append('Set-Cookie', rewritten);
+            }
+        });
+    } else {
+        // 兼容：getAll 不可用时回退到 get（仅处理第一个）
+        const singleCookie = response.headers.get('Set-Cookie');
+        if (singleCookie) {
+            const rewritten = singleCookie
+                .replace(/\s*;\s*Domain=[^;]+/gi, '')
+                .replace(/^\s*Domain=[^;]+;?\s*/i, '')
+                .trim();
+            responseHeaders.set('Set-Cookie', rewritten);
+        }
     }
-    
+
     // 添加 CORS 头
-    const origin = request.headers.get('Origin');
     const corsHeaders = getCorsHeaders(origin);
-    
+
     Object.keys(corsHeaders).forEach(key => {
         responseHeaders.set(key, corsHeaders[key]);
     });
-    
-    // 添加安全响应头
-    responseHeaders.set('X-Content-Type-Options', 'nosniff');
-    responseHeaders.set('X-Frame-Options', 'DENY');
-    responseHeaders.set('X-XSS-Protection', '1; mode=block');
-    responseHeaders.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    
-    // 移除可能导致问题的头
-    responseHeaders.delete('Content-Security-Policy');
-    responseHeaders.delete('X-Content-Security-Policy');
-    
+
+    // 添加安全响应头（纵深防御）
+    applySecurityHeaders(responseHeaders);
+
     return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -296,57 +377,61 @@ export default {
         if (method !== 'OPTIONS' && RATE_LIMIT_KV) {
             const rateLimit = await checkRateLimit(clientIP, env);
             if (!rateLimit.allowed) {
-                const response = new Response(JSON.stringify({ 
-                    status: false, 
+                const rateLimitHeaders = new Headers({
+                    'Content-Type': 'application/json',
+                    'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString()
+                });
+                const corsHeaders = getCorsHeaders(origin);
+                Object.keys(corsHeaders).forEach(key => {
+                    rateLimitHeaders.set(key, corsHeaders[key]);
+                });
+                applySecurityHeaders(rateLimitHeaders);
+                return new Response(JSON.stringify({
+                    status: false,
                     reason: '请求过于频繁，请稍后再试',
                     retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
                 }), {
                     status: 429,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString(),
-                        ...getCorsHeaders(origin)
-                    }
+                    headers: rateLimitHeaders
                 });
-                return response;
             }
         }
         
         // 验证请求方法
         if (!validateMethod(method)) {
-            return createErrorResponse(405, '不允许的请求方法');
+            return createErrorResponse(405, '不允许的请求方法', origin);
         }
-        
+
         // 处理 OPTIONS 请求
         if (method === 'OPTIONS') {
             return handleOptions(request);
         }
-        
+
         // 构建目标路径用于验证
         let targetPath = url.pathname;
         if (targetPath.startsWith('/api')) {
             targetPath = targetPath.slice(4);
         }
-        
+
         // 验证请求路径
         if (!validatePath(targetPath)) {
-            return createErrorResponse(403, '不允许的请求路径');
+            return createErrorResponse(403, '不允许的请求路径', origin);
         }
-        
+
         // 检查请求体大小（仅对POST请求）
         if (method === 'POST') {
             const contentLength = request.headers.get('Content-Length');
             if (contentLength && parseInt(contentLength) > MAX_BODY_SIZE) {
-                return createErrorResponse(413, '请求体过大');
+                return createErrorResponse(413, '请求体过大', origin);
             }
         }
-        
+
         // 验证Origin（仅在Origin存在且不在白名单时拒绝，同源请求浏览器不发送Origin头）
         if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-            return createErrorResponse(403, '未授权的访问源');
+            return createErrorResponse(403, '未授权的访问源', origin);
         }
-        
+
         // 转发请求
-        return forwardRequest(request);
+        return forwardRequest(request, origin);
     }
 };
