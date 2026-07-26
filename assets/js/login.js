@@ -3,6 +3,86 @@
 
     let loginCallback = null;
 
+    // 客户端登录限流配置（补充服务端KV限流）
+    const LOGIN_THROTTLE = {
+        maxAttempts: 5,           // 最大尝试次数
+        windowMs: 5 * 60 * 1000,  // 5分钟窗口
+        baseDelayMs: 1000,        // 基础延迟1秒
+        maxDelayMs: 30 * 1000     // 最大延迟30秒
+    };
+
+    // 获取当前登录限流状态
+    function getLoginThrottleState() {
+        try {
+            const raw = sessionStorage.getItem('elixir_loginThrottle');
+            if (!raw) return { attempts: 0, firstAttemptAt: 0, lockedUntil: 0 };
+            const state = JSON.parse(raw);
+            const now = Date.now();
+            // 窗口过期则重置
+            if (now - state.firstAttemptAt > LOGIN_THROTTLE.windowMs) {
+                return { attempts: 0, firstAttemptAt: 0, lockedUntil: 0 };
+            }
+            // 锁定过期则解锁（但保留尝试计数）
+            if (state.lockedUntil && now > state.lockedUntil) {
+                state.lockedUntil = 0;
+            }
+            return state;
+        } catch (e) {
+            return { attempts: 0, firstAttemptAt: 0, lockedUntil: 0 };
+        }
+    }
+
+    // 保存登录限流状态
+    function saveLoginThrottleState(state) {
+        try {
+            sessionStorage.setItem('elixir_loginThrottle', JSON.stringify(state));
+        } catch (e) {
+            // sessionStorage 不可用时静默失败
+        }
+    }
+
+    // 检查是否被锁定，返回需等待的毫秒数（0表示未锁定）
+    function getLoginLockRemaining() {
+        const state = getLoginThrottleState();
+        if (state.lockedUntil) {
+            const remaining = state.lockedUntil - Date.now();
+            return remaining > 0 ? remaining : 0;
+        }
+        return 0;
+    }
+
+    // 记录一次失败尝试，返回需等待的毫秒数
+    function recordFailedAttempt() {
+        const state = getLoginThrottleState();
+        const now = Date.now();
+        if (state.firstAttemptAt === 0) {
+            state.firstAttemptAt = now;
+        }
+        state.attempts++;
+        // 超过最大尝试次数则锁定，延迟指数增长
+        if (state.attempts > LOGIN_THROTTLE.maxAttempts) {
+            const exponent = state.attempts - LOGIN_THROTTLE.maxAttempts;
+            const delay = Math.min(
+                LOGIN_THROTTLE.baseDelayMs * Math.pow(2, exponent),
+                LOGIN_THROTTLE.maxDelayMs
+            );
+            state.lockedUntil = now + delay;
+            saveLoginThrottleState(state);
+            return delay;
+        }
+        saveLoginThrottleState(state);
+        return 0;
+    }
+
+    // 登录成功后重置限流状态
+    function resetLoginThrottle() {
+        try {
+            sessionStorage.removeItem('elixir_loginThrottle');
+        } catch (e) {
+            // 静默失败
+        }
+    }
+
     // 加载登录弹窗HTML
     async function loadLoginModal() {
         try {
@@ -243,6 +323,14 @@
             return;
         }
 
+        // 客户端限流检查：防止暴力破解
+        const lockRemaining = getLoginLockRemaining();
+        if (lockRemaining > 0) {
+            const seconds = Math.ceil(lockRemaining / 1000);
+            showError('password-error', `尝试过于频繁，请 ${seconds} 秒后再试`);
+            return;
+        }
+
         // 提交登录请求（Worker处理所有复杂逻辑）
         submitBtn.disabled = true;
         submitBtn.textContent = '登录中...';
@@ -262,14 +350,17 @@
             const data = await response.json();
 
             if (data.status) {
+                // 登录成功，重置限流状态
+                resetLoginThrottle();
+
                 // 登录成功
                 alert('登录成功！');
 
                 // 保存登录状态（带完整性校验）
                 CookieManager.saveLoginStatus();
-                
+
                 document.getElementById('elixir-login-modal').classList.remove('show');
-                
+
                 // 立即发送一个测试请求以确保Cookie生效
                 setTimeout(async () => {
                     try {
@@ -279,7 +370,7 @@
                             credentials: 'include',
                             cache: 'no-cache'
                         });
-                        
+
                         // 检查Cookie是否正确设置（浏览器会自动管理）
                         if (!testResponse.ok) {
                             console.error('[Elixir登录] Cookie验证失败');
@@ -288,13 +379,25 @@
                         console.error('[Elixir登录] 测试请求异常:', e);
                     }
                 }, 1000);
-                
+
                 // 调用回调函数
                 if (loginCallback) {
                     loginCallback();
                 }
             } else {
-                showError('password-error', data.reason || '登录失败');
+                // 登录失败，记录失败尝试
+                const lockDelay = recordFailedAttempt();
+                if (lockDelay > 0) {
+                    const seconds = Math.ceil(lockDelay / 1000);
+                    showError('password-error', (data.reason || '登录失败') + `，请 ${seconds} 秒后再试`);
+                } else {
+                    const remaining = LOGIN_THROTTLE.maxAttempts - getLoginThrottleState().attempts;
+                    if (remaining > 0 && remaining <= 2) {
+                        showError('password-error', (data.reason || '登录失败') + `（剩余 ${remaining} 次尝试机会）`);
+                    } else {
+                        showError('password-error', data.reason || '登录失败');
+                    }
+                }
             }
         } catch (error) {
             console.error('[Elixir登录] 登录请求失败:', error);

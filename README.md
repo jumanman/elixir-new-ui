@@ -47,11 +47,22 @@ elixir-web/
 
 - ✅ HttpOnly Cookie 防止 XSS 攻击
 - ✅ Secure Cookie 仅在 HTTPS 下传输
-- ✅ Origin 白名单验证
-- ✅ 请求路径白名单
-- ✅ 速率限制（每分钟60次）
-- ✅ 文件上传类型和大小限制
-- ✅ XSS 防护（HTML转义）
+- ✅ Origin 白名单验证（仅允许配置的源跨域访问）
+- ✅ 请求路径白名单（防止路径遍历和未授权端点访问）
+- ✅ 下载端点文件扩展名白名单（仅允许 .apk）
+- ✅ 速率限制（基于 Cloudflare KV，每分钟60次）
+- ✅ 客户端登录限流（指数退避，防止暴力破解）
+- ✅ 文件上传类型和大小限制（50MB）
+- ✅ XSS 防护（DOM API 代替 innerHTML，HTML 转义，DOMParser 清理）
+- ✅ 内容安全策略（CSP）限制资源加载来源
+- ✅ HSTS 强制 HTTPS 传输
+- ✅ X-Frame-Options 防止点击劫持
+- ✅ X-Content-Type-Options 防止 MIME 嗅探
+- ✅ Referrer-Policy 控制 Referrer 泄露
+- ✅ localStorage 数据完整性校验（检测篡改）
+- ✅ CORS 凭据仅对白名单源开放（Vary: Origin）
+- ✅ Set-Cookie 安全属性保留（仅移除 Domain，保留 HttpOnly/Secure/SameSite）
+- ✅ 请求体和响应体大小限制（防止资源耗尽）
 
 ## 二次开发改进
 

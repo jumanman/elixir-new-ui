@@ -321,9 +321,17 @@ async function proxyToTarget(request, targetUrl, origin, maxResponseSize) {
         }
     }
 
-    // 处理 Set-Cookie：使用 getAll 获取所有 Cookie（支持多个 Set-Cookie 头）
-    // 逐个重写，仅移除 Domain 属性，保留 HttpOnly/Secure/SameSite 等安全属性
-    const setCookies = response.headers.getAll ? response.headers.getAll('Set-Cookie') : [];
+    // 处理 Set-Cookie：获取所有 Cookie（支持多个 Set-Cookie 头）
+    // 优先使用标准 getSetCookie()，回退到非标准 getAll()，最后回退到 get()
+    let setCookies = [];
+    if (typeof response.headers.getSetCookie === 'function') {
+        // 标准 API（现代运行时支持）
+        setCookies = response.headers.getSetCookie();
+    } else if (typeof response.headers.getAll === 'function') {
+        // 非标准 API（Cloudflare Workers 支持）
+        setCookies = response.headers.getAll('Set-Cookie');
+    }
+
     if (setCookies.length > 0) {
         responseHeaders.delete('Set-Cookie');
         setCookies.forEach(cookie => {
@@ -338,7 +346,7 @@ async function proxyToTarget(request, targetUrl, origin, maxResponseSize) {
             }
         });
     } else {
-        // 兼容：getAll 不可用时回退到 get（仅处理第一个）
+        // 最终回退：get() 仅返回第一个 Set-Cookie
         const singleCookie = response.headers.get('Set-Cookie');
         if (singleCookie) {
             const rewritten = singleCookie
