@@ -170,10 +170,12 @@ button:focus {
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     font-size: 20px;
+    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    text-align: center;
 }
 
 #elixir-settings-panel .settings-close-btn:hover {
@@ -230,6 +232,7 @@ button:focus {
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    text-align: center;
 }
 
 #elixir-settings-panel .settings-remove-btn:hover {
@@ -771,10 +774,12 @@ button:focus {
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     font-size: 20px;
+    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    text-align: center;
 }
 
 .login-modal-close:hover {

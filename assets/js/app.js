@@ -478,10 +478,39 @@
         }
     }
 
-    // 检测是否已登录（通过尝试获取数据）
+    // 检测是否已登录（通过localStorage和API验证）
     async function checkLoginStatus() {
         const loginBtn = document.getElementById('login-btn');
 
+        // 首先检查localStorage中的登录状态
+        try {
+            const storedStatus = localStorage.getItem('elixir_loginStatus');
+            const loginTime = localStorage.getItem('elixir_loginTime');
+            
+            // 如果有登录状态且时间不超过24小时，先视为已登录
+            if (storedStatus === 'true' && loginTime) {
+                const timeDiff = Date.now() - parseInt(loginTime);
+                const hoursDiff = timeDiff / (1000 * 60 * 60);
+                
+                if (hoursDiff < 24) {
+                    // 短暂信任localStorage状态，但不立即隐藏登录按钮
+                    // 需要通过API验证确认登录状态
+                    isLoggedIn = false; // 先设为false，等待API验证
+                } else {
+                    // 超过24小时，清除登录状态
+                    localStorage.removeItem('elixir_loginStatus');
+                    localStorage.removeItem('elixir_loginTime');
+                    isLoggedIn = false;
+                }
+            } else {
+                isLoggedIn = false;
+            }
+        } catch (e) {
+            console.error('[Elixir工具] 读取登录状态失败:', e);
+            isLoggedIn = false;
+        }
+
+        // 通过API验证登录状态
         try {
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
             const response = await fetch(url, {

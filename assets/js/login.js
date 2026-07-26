@@ -252,6 +252,15 @@
             if (data.status) {
                 // 登录成功
                 alert('登录成功！');
+                
+                // 保存登录状态到localStorage
+                try {
+                    localStorage.setItem('elixir_loginStatus', 'true');
+                    localStorage.setItem('elixir_loginTime', Date.now().toString());
+                } catch (e) {
+                    console.error('[Elixir登录] 保存登录状态失败:', e);
+                }
+                
                 document.getElementById('elixir-login-modal').classList.remove('show');
                 
                 // 调用回调函数
