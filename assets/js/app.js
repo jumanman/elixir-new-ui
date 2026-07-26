@@ -44,17 +44,9 @@
             throw new Error('需要登录才能访问此功能');
         }
 
-        // 添加安全请求头
-        const defaultHeaders = {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Client-Version': '1.0.0',
-            'Accept': 'application/json'
-        };
-
         const mergedOptions = {
             ...options,
             headers: {
-                ...defaultHeaders,
                 ...options.headers
             },
             credentials: 'include',

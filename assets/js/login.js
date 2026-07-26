@@ -243,9 +243,7 @@
                 mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-Client-Version': '1.0.0',
-                    'Referer': 'https://open.lihouse.xyz/elixir'
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({ email, password }),
                 credentials: 'include',
@@ -287,12 +285,7 @@
                             method: 'GET',
                             mode: 'cors',
                             credentials: 'include',
-                            cache: 'no-cache',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Referer': 'https://open.lihouse.xyz/elixir'
-                            }
+                            cache: 'no-cache'
                         });
                         
                         console.log('[Elixir登录] 测试请求响应状态:', testResponse.status);
@@ -303,6 +296,10 @@
                             CookieManager.setCookiesFromResponse(testResponse);
                             console.log('[Elixir登录] Cookie已存储');
                         }
+                        
+                        // 检查当前Cookie
+                        console.log('[Elixir登录] 当前所有Cookie:', CookieManager.getAllCookies());
+                        console.log('[Elixir登录] AuthKey Cookie:', CookieManager.getAuthCookie());
                         
                         if (testResponse.ok) {
                             const testData = await testResponse.json();

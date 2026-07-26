@@ -91,6 +91,8 @@
                         const name = nameValue.trim();
                         const value = parts[0].substring(name.length + 1).trim();
                         
+                        console.log('[Elixir Cookie] 设置Cookie:', name + '=' + value);
+                        
                         // 提取过期时间
                         let expires = 30; // 默认30天
                         for (let part of parts) {
@@ -102,6 +104,11 @@
                         
                         this.setCookie(name, value, expires);
                     }
+                    
+                    // 设置完成后立即检查
+                    console.log('[Elixir Cookie] 设置后的所有Cookies:', this.getAllCookies());
+                } else {
+                    console.log('[Elixir Cookie] 响应中没有Set-Cookie头');
                 }
             } catch (e) {
                 console.error('[Elixir Cookie] 从响应头设置Cookie失败:', e);
