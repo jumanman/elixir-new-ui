@@ -35,8 +35,6 @@ elixir-web/
 │       ├── config.js          # API配置
 │       ├── cookie-manager.js  # Cookie管理
 │       └── login.js           # 登录逻辑
-├── elixir-worker/
-│   └── worker.js              # Cloudflare Worker 代理代码
 ├── index.html                 # 主页面
 ├── README.md                  # 项目说明
 ├── LICENSE                    # 开源许可证
@@ -64,15 +62,6 @@ elixir-web/
 - ✅ 请求体和响应体大小限制（防止资源耗尽）
 
 ## 密码加密传输机制
-
-本项目使用 RSA 非对称加密保护用户密码传输：
-
-1. **Worker 端**：首次启动时生成 RSA-2048 密钥对，持久化到 Cloudflare KV
-2. **公钥获取**：客户端通过 `/api/pubkey` 获取公钥（带浏览器缓存）
-3. **客户端加密**：登录时用公钥加密密码（RSA-OAEP + SHA-256），发送密文
-4. **Worker 解密**：收到请求后用私钥解密，构造明文请求体转发给目标服务器
-5. **强制加密**：Worker 拒绝未加密的登录请求（缺少 `encryptedPassword` 字段）
-
 这样即使 TLS 被终止或 Worker 日志泄露，攻击者也无法获取明文密码。
 
 ## 二次开发改进
