@@ -45,6 +45,10 @@
             'Accept': 'application/json'
         };
 
+        if (!CookieManager.hasAuthCookie()) {
+            defaultHeaders['Referer'] = 'https://open.lihouse.xyz/elixir';
+        }
+
         const mergedOptions = {
             ...options,
             headers: {
@@ -55,7 +59,19 @@
             cache: 'no-cache'
         };
 
-        return fetch(url, mergedOptions);
+        console.log('[Elixir工具] 发送请求到:', url);
+        console.log('[Elixir工具] 请求头:', mergedOptions.headers);
+        console.log('[Elixir工具] 当前Cookie:', CookieManager.getAllCookies());
+
+        const response = await fetch(url, mergedOptions);
+        
+        // 如果响应中有Set-Cookie头，存储Cookie
+        if (response.headers.has('Set-Cookie')) {
+            CookieManager.setCookiesFromResponse(response);
+            console.log('[Elixir工具] 响应中包含Cookie，已存储');
+        }
+        
+        return response;
     }
 
     // HTML转义（防止XSS）
@@ -478,31 +494,37 @@
         }
     }
 
-    // 检测是否已登录（通过localStorage和API验证）
+    // 检测是否已登录（通过Cookie和API验证）
     async function checkLoginStatus() {
         const loginBtn = document.getElementById('login-btn');
 
-        // 首先检查localStorage中的登录状态
+        // 首先检查Cookie中的登录状态
         try {
-            const storedStatus = localStorage.getItem('elixir_loginStatus');
-            const loginTime = localStorage.getItem('elixir_loginTime');
+            const hasAuthCookie = CookieManager.hasAuthCookie();
+            console.log('[Elixir工具] 检查AuthKey Cookie:', hasAuthCookie);
             
-            // 如果有登录状态且时间不超过24小时，先视为已登录
-            if (storedStatus === 'true' && loginTime) {
-                const timeDiff = Date.now() - parseInt(loginTime);
-                const hoursDiff = timeDiff / (1000 * 60 * 60);
+            if (hasAuthCookie) {
+                // 有Cookie，先视为已登录，但需要API验证
+                isLoggedIn = false; // 先设为false，等待API验证
                 
-                if (hoursDiff < 24) {
-                    // 短暂信任localStorage状态，但不立即隐藏登录按钮
-                    // 需要通过API验证确认登录状态
-                    isLoggedIn = false; // 先设为false，等待API验证
-                } else {
-                    // 超过24小时，清除登录状态
-                    localStorage.removeItem('elixir_loginStatus');
-                    localStorage.removeItem('elixir_loginTime');
-                    isLoggedIn = false;
-                }
+                // 保存登录状态到localStorage
+                localStorage.setItem('elixir_loginStatus', 'true');
+                localStorage.setItem('elixir_loginTime', Date.now().toString());
             } else {
+                // 没有Cookie，检查localStorage
+                const storedStatus = localStorage.getItem('elixir_loginStatus');
+                const loginTime = localStorage.getItem('elixir_loginTime');
+                
+                if (storedStatus === 'true' && loginTime) {
+                    const timeDiff = Date.now() - parseInt(loginTime);
+                    const hoursDiff = timeDiff / (1000 * 60 * 60);
+                    
+                    if (hoursDiff < 24) {
+                        // localStorage有状态但无Cookie，可能是过期了
+                        localStorage.removeItem('elixir_loginStatus');
+                        localStorage.removeItem('elixir_loginTime');
+                    }
+                }
                 isLoggedIn = false;
             }
         } catch (e) {
@@ -513,14 +535,15 @@
         // 通过API验证登录状态
         try {
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
-            const response = await fetch(url, {
+            console.log('[Elixir工具] 验证登录状态，请求URL:', url);
+            
+            const response = await safeFetch(url, {
                 method: 'GET',
-                mode: 'cors',
-                credentials: 'include',
-                cache: 'no-cache'
+                mode: 'cors'
             });
 
             const data = await response.json();
+            console.log('[Elixir工具] API验证响应:', data);
 
             if (data.status && data.apks) {
                 // 已登录

@@ -244,7 +244,8 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-Client-Version': '1.0.0'
+                    'X-Client-Version': '1.0.0',
+                    'Referer': 'https://open.lihouse.xyz/elixir'
                 },
                 body: JSON.stringify({ email, password }),
                 credentials: 'include',
@@ -279,15 +280,36 @@
                     console.log('[Elixir登录] 发送测试请求以确保Cookie生效');
                     try {
                         const testUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
+                        console.log('[Elixir登录] 测试请求URL:', testUrl);
+                        
+                        // 添加详细的请求头信息
                         const testResponse = await fetch(testUrl, {
                             method: 'GET',
                             mode: 'cors',
                             credentials: 'include',
-                            cache: 'no-cache'
+                            cache: 'no-cache',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Referer': 'https://open.lihouse.xyz/elixir'
+                            }
                         });
+                        
                         console.log('[Elixir登录] 测试请求响应状态:', testResponse.status);
+                        console.log('[Elixir登录] 测试请求响应头:', Object.fromEntries(testResponse.headers.entries()));
+                        
+                        // 从响应头中存储Cookie
+                        if (testResponse.headers.has('Set-Cookie')) {
+                            CookieManager.setCookiesFromResponse(testResponse);
+                            console.log('[Elixir登录] Cookie已存储');
+                        }
+                        
                         if (testResponse.ok) {
+                            const testData = await testResponse.json();
+                            console.log('[Elixir登录] 测试请求响应数据:', testData);
                             console.log('[Elixir登录] Cookie验证成功');
+                        } else {
+                            console.log('[Elixir登录] 测试请求失败:', testResponse.statusText);
                         }
                     } catch (e) {
                         console.error('[Elixir登录] Cookie验证失败:', e);
