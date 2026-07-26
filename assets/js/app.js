@@ -76,11 +76,21 @@
         return document.createTextNode(String(text || ''));
     }
 
-    // 加载隐藏的包名列表
+    // 加载隐藏的包名列表（带完整性校验）
     function loadHiddenPackages(callback) {
         try {
-            const stored = localStorage.getItem('elixir_hiddenPackages');
-            hiddenPackages = stored ? JSON.parse(stored) : [];
+            const stored = CookieManager.getSecureData('elixir_hiddenPackages');
+            if (stored) {
+                hiddenPackages = JSON.parse(stored);
+                // 验证数据格式：确保是数组且元素都是字符串
+                if (!Array.isArray(hiddenPackages)) {
+                    hiddenPackages = [];
+                } else {
+                    hiddenPackages = hiddenPackages.filter(item => typeof item === 'string');
+                }
+            } else {
+                hiddenPackages = [];
+            }
         } catch (e) {
             console.error('[Elixir工具] 加载隐藏包名列表时出错:', e);
             hiddenPackages = [];
@@ -88,10 +98,10 @@
         if (callback) callback();
     }
 
-    // 保存隐藏包名
+    // 保存隐藏包名（带完整性校验）
     function saveHiddenPackages() {
         try {
-            localStorage.setItem('elixir_hiddenPackages', JSON.stringify(hiddenPackages));
+            CookieManager.setSecureData('elixir_hiddenPackages', JSON.stringify(hiddenPackages));
         } catch (e) {
             console.error('[Elixir工具] 保存隐藏包名列表时出错:', e);
         }
@@ -578,11 +588,10 @@
                 if (loginBtn) {
                     loginBtn.classList.add('hidden');
                 }
-                
-                // 保存登录状态到localStorage
-                localStorage.setItem('elixir_loginStatus', 'true');
-                localStorage.setItem('elixir_loginTime', Date.now().toString());
-                
+
+                // 保存登录状态（带完整性校验）
+                CookieManager.saveLoginStatus();
+
                 // 有Cookie才进行API请求获取数据
                 try {
                     await fetchApkData();
@@ -591,20 +600,8 @@
                     // 即使API失败，只要有Cookie就认为已登录
                 }
             } else {
-                // 没有Cookie，检查localStorage
-                const storedStatus = localStorage.getItem('elixir_loginStatus');
-                const loginTime = localStorage.getItem('elixir_loginTime');
-                
-                if (storedStatus === 'true' && loginTime) {
-                    const timeDiff = Date.now() - parseInt(loginTime);
-                    const hoursDiff = timeDiff / (1000 * 60 * 60);
-                    
-                    if (hoursDiff < 24) {
-                        // localStorage有状态但无Cookie，可能是过期了
-                        localStorage.removeItem('elixir_loginStatus');
-                        localStorage.removeItem('elixir_loginTime');
-                    }
-                }
+                // 没有Cookie，清除可能残留的登录状态
+                CookieManager.clearLoginStatus();
                 isLoggedIn = false;
                 if (loginBtn) {
                     loginBtn.classList.remove('hidden');

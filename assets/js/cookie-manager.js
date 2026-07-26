@@ -172,6 +172,21 @@
         getAuthCookie: function() {
             // HttpOnly Cookie无法通过document.cookie读取，浏览器会自动在请求中携带
             return null;
+        },
+
+        // 安全存储数据（带完整性校验，供其他模块使用）
+        setSecureData: function(key, value) {
+            setSecureItem(key, value);
+        },
+
+        // 安全读取数据（带完整性校验，供其他模块使用）
+        getSecureData: function(key) {
+            return getSecureItem(key);
+        },
+
+        // 安全移除数据（带完整性校验，供其他模块使用）
+        removeSecureData: function(key) {
+            removeSecureItem(key);
         }
     };
 
