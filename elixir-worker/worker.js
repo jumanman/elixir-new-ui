@@ -396,11 +396,17 @@ async function proxyToTarget(request, targetUrl, origin, maxResponseSize, custom
     headers.delete('CF-Connecting-IP');
     headers.delete('X-Forwarded-For');
 
-    // 创建转发请求
+    // 如果使用自定义请求体（如解密后的密码），需要删除原始 Content-Length
+    // 让运行时根据新 body 自动计算，避免长度不匹配
+    if (customBody !== undefined) {
+        headers.delete('Content-Length');
+    }
+
+    // 创建转发请求（优先使用自定义请求体，否则使用原始请求体）
     const forwardRequest = new Request(targetUrl, {
         method: request.method,
         headers: headers,
-        body: request.body,
+        body: customBody !== undefined ? customBody : request.body,
         redirect: 'follow'
     });
 
