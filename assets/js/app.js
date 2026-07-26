@@ -56,12 +56,24 @@
         return response;
     }
 
-    // HTML转义（防止XSS）
+    // HTML转义（防止XSS）- 用于将不可信文本安全插入HTML
     function escapeHtml(text) {
-        if (!text) return '';
+        if (text === null || text === undefined) return '';
         const div = document.createElement('div');
-        div.textContent = text;
+        div.textContent = String(text);
         return div.innerHTML;
+    }
+
+    // 安全设置元素文本内容（替代innerHTML）
+    function safeSetText(element, text) {
+        if (element) {
+            element.textContent = String(text || '');
+        }
+    }
+
+    // 安全创建文本节点
+    function safeCreateTextNode(text) {
+        return document.createTextNode(String(text || ''));
     }
 
     // 加载隐藏的包名列表
@@ -146,14 +158,16 @@
             }
         } catch (error) {
             console.error('[Elixir工具] 获取APK数据失败:', error);
-            
+
+            // 安全显示错误信息（避免XSS）
+            const safeMsg = escapeHtml(error.message || '未知错误');
             // 跨域回退方案
             if (error.name === 'TypeError' && error.message.includes('CORS')) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">跨域访问被限制，请检查后端配置</td></tr>';
             } else if (error.message.includes('需要登录才能访问此功能')) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">登录已过期，请重新登录</td></tr>';
             } else {
-                tbody.innerHTML = '<tr><td colspan="3" class="no-records">网络请求失败: ' + error.message + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" class="no-records">网络请求失败: ' + safeMsg + '</td></tr>';
             }
         }
     }

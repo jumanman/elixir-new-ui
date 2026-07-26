@@ -6,7 +6,7 @@
 
 ## 原始项目
 
-- **原始地址**: [open.lihouse.xyz/elixir](https://open.lihouse.xyz/elixir) 【本项目基于 calyxor 的 Elixir 进行二次开发，最终服务全部由该项目提供，并非由本项目提供（感谢 calyxor 大佬 /比心 /比心 ）】
+- **原始地址**: [open.lihouse.xyz/elixir](https://open.lihouse.xyz/elixir) 【本项目基于 calyxor 的 Elixir 项目 null进行二次开发，最终服务全部由该项目提供，并非由本项目提供（感谢 calyxor 大佬 /比心 /比心 ）】
 - **二次开发**: 添加 Cloudflare Worker 代理层，解决跨域访问问题。
 
 ## 功能特性
@@ -16,7 +16,7 @@
 ## 技术栈
 
 - **前端**: HTML5 + CSS3 + JavaScript (ES6+)
-- **代理**: Cloudflare Workers (代理层)
+- **代理**: Cloudflare Workers
 - **样式**: 响应式设计，深色主题
 
 ## 项目结构
