@@ -82,24 +82,10 @@
             }
         },
 
-        // 获取认证Cookie（浏览器自动管理）
+        // 获取认证Cookie（HttpOnly Cookie，浏览器自动管理，JS无法读取）
         getAuthCookie: function() {
-            try {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    let c = cookies[i];
-                    while (c.charAt(0) === ' ') {
-                        c = c.substring(1);
-                    }
-                    if (c.indexOf('AuthKey=') === 0) {
-                        return c.substring('AuthKey='.length);
-                    }
-                }
-                return null;
-            } catch (e) {
-                console.error('[Elixir Cookie] 获取认证Cookie失败:', e);
-                return null;
-            }
+            // HttpOnly Cookie无法通过document.cookie读取，浏览器会自动在请求中携带
+            return null;
         }
     };
 

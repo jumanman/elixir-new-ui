@@ -218,22 +218,14 @@
             return;
         }
 
-        // 提交登录请求
+        // 提交登录请求（Worker处理所有复杂逻辑）
         submitBtn.disabled = true;
         submitBtn.textContent = '登录中...';
 
         try {
-            const url = API_CONFIG.BASE_URL + API_ENDPOINTS.LOGIN;
-            
-            // 安全检查：确保URL是合法的
-            if (!url.startsWith('https://')) {
-                throw new Error('不安全的请求协议');
-            }
-
-            // 使用浏览器原生请求头，只添加必要的Content-Type
-            const response = await fetch(url, {
+            // 使用相对路径调用API，所有参数由Worker处理
+            const response = await fetch(API_ENDPOINTS.LOGIN, {
                 method: 'POST',
-                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -241,10 +233,6 @@
                 credentials: 'include',
                 cache: 'no-cache'
             });
-
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
 
             const data = await response.json();
 
@@ -265,12 +253,9 @@
                 // 立即发送一个测试请求以确保Cookie生效
                 setTimeout(async () => {
                     try {
-                        const testUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
-                        
-                        // 使用浏览器原生请求头
-                        const testResponse = await fetch(testUrl, {
+                        // 使用相对路径，Worker处理所有逻辑
+                        const testResponse = await fetch(API_ENDPOINTS.GET_APKS, {
                             method: 'GET',
-                            mode: 'cors',
                             credentials: 'include',
                             cache: 'no-cache'
                         });
