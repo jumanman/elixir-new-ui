@@ -1,1 +1,49 @@
-elixir-worker
+# 编辑器和IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# Cloudflare Worker 敏感配置
+elixir-worker/wrangler.toml
+elixir-worker/.dev.vars
+elixir-worker/env/
+
+# 依赖和构建产物
+node_modules/
+dist/
+build/
+
+# 证书和密钥（如有）
+*.pem
+*.key
+*.crt
+*.p12
+
+# 测试文件（如有）
+coverage/
+.nyc_output/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 备份文件
+*.bak
+*.backup
