@@ -71,12 +71,6 @@ const SECURITY_CONFIG = {
         };
 
         const response = await fetch(url, mergedOptions);
-        
-        // 如果响应中有Set-Cookie头，存储Cookie
-        if (response.headers.has('Set-Cookie')) {
-            CookieManager.setCookiesFromResponse(response);
-        }
-        
         return response;
     }
 

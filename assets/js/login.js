@@ -274,21 +274,15 @@
                             credentials: 'include',
                             cache: 'no-cache'
                         });
-
-                        // 从响应头中存储Cookie
-                        if (testResponse.headers.has('Set-Cookie')) {
-                            CookieManager.setCookiesFromResponse(testResponse);
-                        }
                         
-                        if (testResponse.ok) {
-                            const testData = await testResponse.json();
-                        } else {
-                            console.error('[Elixir登录] 测试请求失败:', testResponse.statusText);
+                        // 检查Cookie是否正确设置（浏览器会自动管理）
+                        if (!testResponse.ok) {
+                            console.error('[Elixir登录] Cookie验证失败');
                         }
                     } catch (e) {
-                        console.error('[Elixir登录] Cookie验证失败:', e);
+                        console.error('[Elixir登录] 测试请求异常:', e);
                     }
-                }, 500);
+                }, 1000);
                 
                 // 调用回调函数
                 if (loginCallback) {

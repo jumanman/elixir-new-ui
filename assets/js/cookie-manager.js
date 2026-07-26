@@ -1,20 +1,8 @@
 (function() {
     'use strict';
 
-    // Cookie管理器
+    // Cookie管理器（主要依赖浏览器自动Cookie管理）
     const CookieManager = {
-        // 存储Cookie
-        setCookie: function(name, value, days = 30) {
-            try {
-                const date = new Date();
-                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                const expires = "expires=" + date.toUTCString();
-                document.cookie = name + "=" + value + ";" + expires + ";path=/;Secure;SameSite=Lax";
-            } catch (e) {
-                console.error('[Elixir Cookie] 设置Cookie失败:', e);
-            }
-        },
-
         // 获取Cookie
         getCookie: function(name) {
             try {
@@ -70,63 +58,44 @@
             }
         },
 
-        // 从响应头设置Cookie
-        setCookiesFromResponse: function(response) {
-            try {
-                const setCookieHeader = response.headers.get('Set-Cookie');
-                if (setCookieHeader) {
-                    
-                    // 解析Set-Cookie头
-                    const cookies = setCookieHeader.split(', ');
-                    for (let cookie of cookies) {
-                        // 处理可能的多个Set-Cookie头
-                        const parts = cookie.split(';');
-                        
-                        // 健壮的Cookie解析：处理值中包含=的情况
-                        const cookiePair = parts[0].trim();
-                        const firstEqualIndex = cookiePair.indexOf('=');
-                        
-                        if (firstEqualIndex === -1) {
-                            continue; // 跳过无效的Cookie
-                        }
-                        
-                        const name = cookiePair.substring(0, firstEqualIndex).trim();
-                        const value = cookiePair.substring(firstEqualIndex + 1).trim();
-                        
-                        // 验证Cookie名称不为空
-                        if (!name) {
-                            continue;
-                        }
-                        
-                        // 提取过期时间
-                        let expires = 30; // 默认30天
-                        for (let part of parts) {
-                            if (part.trim().startsWith('Max-Age=')) {
-                                expires = parseInt(part.trim().substring(8));
-                                if (isNaN(expires) || expires < 0) {
-                                    expires = 30; // 无效值使用默认
-                                }
-                                break;
-                            }
-                        }
-                        
-                        this.setCookie(name, value, expires);
-                    }
-                }
-            } catch (e) {
-                console.error('[Elixir Cookie] 从响应头设置Cookie失败:', e);
-            }
-        },
-
         // 检查是否有认证Cookie
         hasAuthCookie: function() {
-            const authKey = this.getCookie('AuthKey');
-            return authKey !== null && authKey !== '';
+            try {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    let c = cookies[i];
+                    while (c.charAt(0) === ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf('AuthKey=') === 0) {
+                        return true; // 找到AuthKey Cookie
+                    }
+                }
+                return false;
+            } catch (e) {
+                console.error('[Elixir Cookie] 检查认证Cookie失败:', e);
+                return false;
+            }
         },
 
         // 获取认证Cookie
         getAuthCookie: function() {
-            return this.getCookie('AuthKey');
+            try {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    let c = cookies[i];
+                    while (c.charAt(0) === ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf('AuthKey=') === 0) {
+                        return c.substring('AuthKey='.length);
+                    }
+                }
+                return null;
+            } catch (e) {
+                console.error('[Elixir Cookie] 获取认证Cookie失败:', e);
+                return null;
+            }
         }
     };
 
