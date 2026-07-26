@@ -25,6 +25,9 @@ const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 // 下载响应大小限制（100MB - APK文件可能较大）
 const MAX_DOWNLOAD_RESPONSE_SIZE = 100 * 1024 * 1024;
 
+// 目标服务器请求超时（30秒，防止慢响应挂起 Worker）
+const FETCH_TIMEOUT_MS = 30 * 1000;
+
 // 路径白名单（只允许这些路径）
 const ALLOWED_PATHS = ['/get_apks', '/upload', '/update', '/login', '/download', '/pubkey'];
 
@@ -410,8 +413,21 @@ async function proxyToTarget(request, targetUrl, origin, maxResponseSize, custom
         redirect: 'follow'
     });
 
-    // 发送请求并获取响应
-    const response = await fetch(forwardRequest);
+    // 设置超时控制，防止目标服务器慢响应导致 Worker 挂起
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let response;
+    try {
+        response = await fetch(forwardRequest, { signal: controller.signal });
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+            return createErrorResponse(504, '目标服务器响应超时', origin);
+        }
+        throw e;
+    }
+    clearTimeout(timeoutId);
 
     // 检查响应大小
     const contentLength = response.headers.get('Content-Length');
