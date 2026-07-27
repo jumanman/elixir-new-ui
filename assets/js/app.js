@@ -12,19 +12,17 @@
             
 
             if (parsedUrl.protocol !== 'https:') {
-                console.error('[Elixir安全] 不允许的协议:', parsedUrl.protocol);
+
                 return false;
             }
             
 
             if (parsedUrl.hostname !== window.location.hostname) {
-                console.error('[Elixir安全] 不允许的域名:', parsedUrl.hostname);
                 return false;
             }
             
             return true;
         } catch (e) {
-            console.error('[Elixir安全] URL解析失败:', e);
             return false;
         }
     }
@@ -84,7 +82,6 @@
                 hiddenPackages = [];
             }
         } catch (e) {
-            console.error('[Elixir工具] 加载隐藏包名列表时出错:', e);
             hiddenPackages = [];
         }
         if (callback) callback();
@@ -94,7 +91,6 @@
         try {
             CookieManager.setSecureData('elixir_hiddenPackages', JSON.stringify(hiddenPackages));
         } catch (e) {
-            console.error('[Elixir工具] 保存隐藏包名列表时出错:', e);
         }
     }
 
@@ -153,11 +149,8 @@
                 renderTable();
             } else {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">获取数据失败</td></tr>';
-                console.error('[Elixir工具] API返回数据异常:', data);
             }
         } catch (error) {
-            console.error('[Elixir工具] 获取APK数据失败:', error);
-
             const safeMsg = escapeHtml(error.message || '未知错误');
 
             if (error.name === 'TypeError' && error.message.includes('CORS')) {
@@ -290,11 +283,9 @@
 
             proxyUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.DOWNLOAD + '?path=' + encodeURIComponent(url);
         } else {
-
-            console.error('[Elixir安全] 拒绝非目标域名下载URL:', url);
-            alert('下载链接无效');
-            return;
-        }
+                alert('下载链接无效');
+                return;
+            }
 
         const safeAppName = sanitizeFilename(appName);
         const safePkgName = sanitizeFilename(pkgName);
@@ -340,6 +331,7 @@
     async function readZipEntry(arrayBuffer, entryPath) {
         const view = new DataView(arrayBuffer);
         const targetPathLower = entryPath.replace(/\\/g, '/').toLowerCase();
+        const targetPathBackslashLower = entryPath.replace(/\//g, '\\').toLowerCase();
         const EOCD_SIGNATURE = 0x06054B50;
         const CD_SIGNATURE = 0x02014B50;
         const LF_SIGNATURE = 0x04034B50;
@@ -353,14 +345,11 @@
         }
 
         if (eocdOffset <= 0) {
-            console.error('[Elixir工具] 未找到ZIP EOCD标记');
             return null;
         }
 
         const cdOffset = view.getUint32(eocdOffset + 16, true);
         const cdEntries = view.getUint16(eocdOffset + 10, true);
-
-        console.log('[Elixir工具] APK文件包含', cdEntries, '个条目');
 
         let offset = cdOffset;
         for (let i = 0; i < cdEntries; i++) {
@@ -368,44 +357,27 @@
 
             const signature = view.getUint32(offset, true);
             if (signature !== CD_SIGNATURE) {
-                console.warn('[Elixir工具] CD条目签名不匹配:', signature.toString(16));
                 break;
             }
 
-            const versionMadeBy = view.getUint16(offset + 4, true);
-            const versionNeeded = view.getUint16(offset + 6, true);
-            const flags = view.getUint16(offset + 8, true);
             const compression = view.getUint16(offset + 10, true);
-            const lastModTime = view.getUint16(offset + 12, true);
-            const lastModDate = view.getUint16(offset + 14, true);
-            const crc32 = view.getUint32(offset + 16, true);
             const compressedSize = view.getUint32(offset + 20, true);
-            const uncompressedSize = view.getUint32(offset + 24, true);
             const fileNameLength = view.getUint16(offset + 26, true);
             const extraFieldLength = view.getUint16(offset + 28, true);
             const fileCommentLength = view.getUint16(offset + 30, true);
-            const diskNumberStart = view.getUint16(offset + 32, true);
-            const internalAttrs = view.getUint16(offset + 34, true);
-            const externalAttrs = view.getUint32(offset + 36, true);
             const localHeaderOffset = view.getUint32(offset + 42, true);
 
             const fileNameBytes = new Uint8Array(arrayBuffer, offset + 46, fileNameLength);
             const fileName = new TextDecoder('UTF-8').decode(fileNameBytes);
             const fileNameLower = fileName.toLowerCase();
 
-            console.log('[Elixir工具] APK条目:', fileName);
-
-            if (fileNameLower === targetPathLower) {
-                console.log('[Elixir工具] 找到目标文件:', fileName, '压缩大小:', compressedSize, '偏移:', localHeaderOffset);
-
+            if (fileNameLower === targetPathLower || fileNameLower === targetPathBackslashLower) {
                 if (localHeaderOffset + 4 > view.byteLength) {
-                    console.error('[Elixir工具] 本地文件头偏移无效');
                     return null;
                 }
 
                 const localSig = view.getUint32(localHeaderOffset, true);
                 if (localSig !== LF_SIGNATURE) {
-                    console.error('[Elixir工具] 本地文件头签名不匹配:', localSig.toString(16));
                     return null;
                 }
 
@@ -414,7 +386,6 @@
                 const fileDataOffset = localHeaderOffset + 30 + localFileNameLength + localExtraFieldLength;
 
                 if (fileDataOffset + compressedSize > view.byteLength) {
-                    console.error('[Elixir工具] 文件数据超出范围');
                     return null;
                 }
 
@@ -441,11 +412,9 @@
                         }
                         return new TextDecoder('UTF-8').decode(decompressedData);
                     } catch (e) {
-                        console.error('[Elixir工具] ZIP deflate解压失败:', e);
                         return null;
                     }
                 } else {
-                    console.error('[Elixir工具] 不支持的压缩方法:', compression);
                     return null;
                 }
             }
@@ -453,7 +422,6 @@
             offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
         }
 
-        console.warn('[Elixir工具] 在APK中未找到文件:', entryPath);
         return null;
     }
 
@@ -482,7 +450,7 @@
             btn.textContent = '读取APK...';
 
             const arrayBuffer = await file.arrayBuffer();
-            const entrypointContent = await readZipEntry(arrayBuffer, 'assets/www/entrypoint.js');
+            const entrypointContent = await readZipEntry(arrayBuffer, 'assets\\www\\entrypoint.js');
 
             btn.textContent = '更新中...';
 
@@ -507,7 +475,6 @@
                 alert('更新失败: ' + (data.reason || '未知错误'));
             }
         } catch (error) {
-            console.error('[Elixir工具] 更新失败:', error);
             alert('更新失败: ' + error.message);
         } finally {
             btn.disabled = false;
