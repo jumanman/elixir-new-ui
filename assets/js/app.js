@@ -339,76 +339,72 @@
 
     async function readZipEntry(arrayBuffer, entryPath) {
         const view = new DataView(arrayBuffer);
-        const targetPath = entryPath.replace(/\\/g, '/').toLowerCase();
-        let offset = 0;
-        const EOCD_SIGNATURE = 0x06054B50;
-        const CD_SIGNATURE = 0x02014B50;
+        const targetPathLower = entryPath.replace(/\\/g, '/').toLowerCase();
         const LF_SIGNATURE = 0x04034B50;
+        const EOCD_SIGNATURE = 0x06054B50;
 
+        let offset = 0;
         while (offset < view.byteLength - 4) {
             const signature = view.getUint32(offset, true);
-            if (signature === EOCD_SIGNATURE) {
-                const cdOffset = view.getUint32(offset + 16, true);
-                offset = cdOffset;
-                break;
-            }
-            offset++;
-        }
 
-        while (offset < view.byteLength - 4) {
-            const signature = view.getUint32(offset, true);
-            if (signature !== CD_SIGNATURE) break;
-
-            const fileNameLength = view.getUint16(offset + 28, true);
-            const extraFieldLength = view.getUint16(offset + 30, true);
-            const fileCommentLength = view.getUint16(offset + 32, true);
-            const localHeaderOffset = view.getUint32(offset + 42, true);
-
-            const fileNameBytes = new Uint8Array(arrayBuffer, offset + 46, fileNameLength);
-            const fileName = new TextDecoder('UTF-8').decode(fileNameBytes).toLowerCase();
-
-            if (fileName === targetPath) {
-                const localOffset = localHeaderOffset;
-                if (view.getUint32(localOffset, true) !== LF_SIGNATURE) return null;
-
-                const localFileNameLength = view.getUint16(localOffset + 26, true);
-                const localExtraFieldLength = view.getUint16(localOffset + 28, true);
-                const fileDataOffset = localOffset + 30 + localFileNameLength + localExtraFieldLength;
-
+            if (signature === LF_SIGNATURE) {
+                const version = view.getUint16(offset + 4, true);
+                const flags = view.getUint16(offset + 6, true);
+                const compression = view.getUint16(offset + 8, true);
+                const crc32 = view.getUint32(offset + 16, true);
                 const compressedSize = view.getUint32(offset + 20, true);
-                const isCompressed = view.getUint16(offset + 10, true) !== 0;
+                const uncompressedSize = view.getUint32(offset + 24, true);
+                const fileNameLength = view.getUint16(offset + 26, true);
+                const extraFieldLength = view.getUint16(offset + 28, true);
 
-                const fileData = new Uint8Array(arrayBuffer, fileDataOffset, compressedSize);
+                const fileNameBytes = new Uint8Array(arrayBuffer, offset + 30, fileNameLength);
+                const fileName = new TextDecoder('UTF-8').decode(fileNameBytes);
+                const fileNameLower = fileName.toLowerCase();
 
-                if (isCompressed) {
-                    try {
-                        const stream = new Blob([fileData]).stream();
-                        const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
-                        const reader = decompressedStream.getReader();
-                        const chunks = [];
-                        let result;
-                        while (!(result = await reader.read()).done) {
-                            chunks.push(result.value);
+                if (fileNameLower === targetPathLower) {
+                    const fileDataOffset = offset + 30 + fileNameLength + extraFieldLength;
+                    const fileData = new Uint8Array(arrayBuffer, fileDataOffset, compressedSize);
+
+                    if (compression === 0) {
+                        return new TextDecoder('UTF-8').decode(fileData);
+                    } else if (compression === 8) {
+                        try {
+                            const stream = new Blob([fileData]).stream();
+                            const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+                            const reader = decompressedStream.getReader();
+                            const chunks = [];
+                            let result;
+                            while (!(result = await reader.read()).done) {
+                                chunks.push(result.value);
+                            }
+                            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                            const decompressedData = new Uint8Array(totalLength);
+                            let pos = 0;
+                            for (const chunk of chunks) {
+                                decompressedData.set(chunk, pos);
+                                pos += chunk.length;
+                            }
+                            return new TextDecoder('UTF-8').decode(decompressedData);
+                        } catch (e) {
+                            console.error('[Elixir工具] ZIP deflate解压失败:', e);
+                            return null;
                         }
-                        const decompressedData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-                        let offset = 0;
-                        for (const chunk of chunks) {
-                            decompressedData.set(chunk, offset);
-                            offset += chunk.length;
-                        }
-                        return new TextDecoder('UTF-8').decode(decompressedData);
-                    } catch (e) {
-                        console.error('[Elixir工具] ZIP解压失败:', e);
+                    } else {
+                        console.error('[Elixir工具] 不支持的压缩方法:', compression);
                         return null;
                     }
-                } else {
-                    return new TextDecoder('UTF-8').decode(fileData);
                 }
-            }
 
-            offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
+                const localRecordSize = 30 + fileNameLength + extraFieldLength + compressedSize;
+                offset += localRecordSize;
+            } else if (signature === EOCD_SIGNATURE) {
+                break;
+            } else {
+                offset++;
+            }
         }
 
+        console.warn('[Elixir工具] 在APK中未找到文件:', entryPath);
         return null;
     }
 
