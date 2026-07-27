@@ -1,2 +1,9 @@
 worker.js
 Elixir热更新_files
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
