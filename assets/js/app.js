@@ -494,7 +494,6 @@
         if (!packageName) return;
 
         if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
-            console.error('[Elixir安全] 无效的包名格式:', packageName);
             alert('无效的包名格式');
             return;
         }
@@ -507,11 +506,10 @@
         }
 
         if (!btn) {
-            console.error('[Elixir安全] 更新按钮引用无效');
+            alert('更新按钮引用无效');
             return;
         }
 
-        // 保存更新信息，触发文件选择
         pendingUpdateInfo = { packageName, btn };
         const fileInput = getUpdateFileInput();
         fileInput.click();
@@ -675,7 +673,6 @@
                     alert('上传失败: ' + (data.reason || '未知错误'));
                 }
             } catch (error) {
-                console.error('[Elixir工具] 上传失败:', error);
                 alert('上传失败: ' + error.message);
             } finally {
                 uploadBtn.textContent = '上传并改包';
@@ -723,8 +720,6 @@
                 try {
                     await fetchApkData();
                 } catch (error) {
-                    console.error('[Elixir工具] 获取数据失败:', error);
-
                 }
             } else {
 
@@ -741,7 +736,6 @@
                 }
             }
         } catch (e) {
-            console.error('[Elixir工具] 读取登录状态失败:', e);
             isLoggedIn = false;
             if (loginBtn) {
                 loginBtn.classList.remove('hidden');
