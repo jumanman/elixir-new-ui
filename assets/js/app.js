@@ -321,42 +321,140 @@
         document.body.removeChild(a);
     }
 
-    window.updateApk = async function(packageName, btn) {
-        if (!packageName) return;
+    // 创建全局隐藏的更新文件选择器（复用，避免重复创建）
+    let updateFileInput = null;
+    let pendingUpdateInfo = null;
 
-        if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
-            console.error('[Elixir安全] 无效的包名格式:', packageName);
-            alert('无效的包名格式');
-            return;
+    function getUpdateFileInput() {
+        if (!updateFileInput) {
+            updateFileInput = document.createElement('input');
+            updateFileInput.type = 'file';
+            updateFileInput.accept = '.apk';
+            updateFileInput.style.display = 'none';
+            updateFileInput.addEventListener('change', handleUpdateFileSelect);
+            document.body.appendChild(updateFileInput);
+        }
+        return updateFileInput;
+    }
+
+    async function readZipEntry(arrayBuffer, entryPath) {
+        const view = new DataView(arrayBuffer);
+        const targetPath = entryPath.replace(/\\/g, '/').toLowerCase();
+        let offset = 0;
+        const EOCD_SIGNATURE = 0x06054B50;
+        const CD_SIGNATURE = 0x02014B50;
+        const LF_SIGNATURE = 0x04034B50;
+
+        while (offset < view.byteLength - 4) {
+            const signature = view.getUint32(offset, true);
+            if (signature === EOCD_SIGNATURE) {
+                const cdOffset = view.getUint32(offset + 16, true);
+                offset = cdOffset;
+                break;
+            }
+            offset++;
         }
 
-        if (!isLoggedIn) {
-            window.showLoginModal(() => {
-                checkLoginStatus();
-            });
-            return;
+        while (offset < view.byteLength - 4) {
+            const signature = view.getUint32(offset, true);
+            if (signature !== CD_SIGNATURE) break;
+
+            const fileNameLength = view.getUint16(offset + 28, true);
+            const extraFieldLength = view.getUint16(offset + 30, true);
+            const fileCommentLength = view.getUint16(offset + 32, true);
+            const localHeaderOffset = view.getUint32(offset + 42, true);
+
+            const fileNameBytes = new Uint8Array(arrayBuffer, offset + 46, fileNameLength);
+            const fileName = new TextDecoder('UTF-8').decode(fileNameBytes).toLowerCase();
+
+            if (fileName === targetPath) {
+                const localOffset = localHeaderOffset;
+                if (view.getUint32(localOffset, true) !== LF_SIGNATURE) return null;
+
+                const localFileNameLength = view.getUint16(localOffset + 26, true);
+                const localExtraFieldLength = view.getUint16(localOffset + 28, true);
+                const fileDataOffset = localOffset + 30 + localFileNameLength + localExtraFieldLength;
+
+                const compressedSize = view.getUint32(offset + 20, true);
+                const isCompressed = view.getUint16(offset + 10, true) !== 0;
+
+                const fileData = new Uint8Array(arrayBuffer, fileDataOffset, compressedSize);
+
+                if (isCompressed) {
+                    try {
+                        const stream = new Blob([fileData]).stream();
+                        const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+                        const reader = decompressedStream.getReader();
+                        const chunks = [];
+                        let result;
+                        while (!(result = await reader.read()).done) {
+                            chunks.push(result.value);
+                        }
+                        const decompressedData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+                        let offset = 0;
+                        for (const chunk of chunks) {
+                            decompressedData.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+                        return new TextDecoder('UTF-8').decode(decompressedData);
+                    } catch (e) {
+                        console.error('[Elixir工具] ZIP解压失败:', e);
+                        return null;
+                    }
+                } else {
+                    return new TextDecoder('UTF-8').decode(fileData);
+                }
+            }
+
+            offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
         }
 
-        if (!btn || !btn.textContent) {
-            console.error('[Elixir安全] 更新按钮引用无效');
-            return;
-        }
+        return null;
+    }
+
+    async function handleUpdateFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file || !pendingUpdateInfo) return;
+
+        const { packageName, btn } = pendingUpdateInfo;
         const originalText = btn.textContent;
-        
+
+        if (!file.name.toLowerCase().endsWith('.apk')) {
+            alert('请选择APK文件');
+            resetUpdateInput();
+            return;
+        }
+
+        const MAX_FILE_SIZE = 50 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
+            alert('文件大小不能超过50MB');
+            resetUpdateInput();
+            return;
+        }
+
         try {
             btn.disabled = true;
+            btn.textContent = '读取APK...';
+
+            const arrayBuffer = await file.arrayBuffer();
+            const entrypointContent = await readZipEntry(arrayBuffer, 'assets/www/entrypoint.js');
+
             btn.textContent = '更新中...';
+
+            const formData = new FormData();
+            formData.append('apk', file);
+            formData.append('entrypointContent', entrypointContent || '');
 
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.UPDATE + '/' + encodeURIComponent(packageName);
 
             const response = await safeFetch(url, {
-                method: 'GET',
-                mode: 'cors'
+                method: 'POST',
+                mode: 'cors',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
-
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
 
             const data = await response.json();
 
@@ -372,7 +470,42 @@
         } finally {
             btn.disabled = false;
             btn.textContent = originalText;
+            resetUpdateInput();
         }
+    }
+
+    function resetUpdateInput() {
+        if (updateFileInput) {
+            updateFileInput.value = '';
+        }
+        pendingUpdateInfo = null;
+    }
+
+    window.updateApk = function(packageName, btn) {
+        if (!packageName) return;
+
+        if (!/^[a-zA-Z0-9._-]+$/.test(packageName)) {
+            console.error('[Elixir安全] 无效的包名格式:', packageName);
+            alert('无效的包名格式');
+            return;
+        }
+
+        if (!isLoggedIn) {
+            window.showLoginModal(() => {
+                checkLoginStatus();
+            });
+            return;
+        }
+
+        if (!btn) {
+            console.error('[Elixir安全] 更新按钮引用无效');
+            return;
+        }
+
+        // 保存更新信息，触发文件选择
+        pendingUpdateInfo = { packageName, btn };
+        const fileInput = getUpdateFileInput();
+        fileInput.click();
     }
 
     function createSettingsPanel() {
