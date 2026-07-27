@@ -10,13 +10,10 @@
         try {
             const parsedUrl = new URL(url, window.location.origin);
             
-
             if (parsedUrl.protocol !== 'https:') {
-
                 return false;
             }
             
-
             if (parsedUrl.hostname !== window.location.hostname) {
                 return false;
             }
@@ -28,7 +25,6 @@
     }
 
     async function safeFetch(url, options = {}) {
-
         if (!validateUrl(url)) {
             throw new Error('请求URL验证失败');
         }
@@ -102,7 +98,6 @@
     }
 
     async function fetchApkData() {
-
         if (!CookieManager.hasAuthCookie()) {
             const tbody = document.getElementById('records-tbody');
             if (tbody) {
@@ -131,10 +126,8 @@
             const data = await response.json();
 
             if (data.status && data.apks) {
-
                 const seenPackages = new Set();
                 allRecords = data.apks.filter(item => {
-
                     if (shouldHidePackage(item.pkgName)) {
                         return false;
                     }
@@ -190,26 +183,21 @@
             const appNameTd = document.createElement('td');
             appNameTd.className = 'package-name tooltip-container';
             
-
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             tooltip.textContent = `包名: ${record.pkgName}`;
             
-
             const textContainer = document.createElement('div');
             textContainer.className = 'elixir-text-container';
             
-
             const appNameSpan = document.createElement('span');
             appNameSpan.className = 'elixir-package-text';
             appNameSpan.textContent = record.appName;
             
-
             const pkgNameSpan = document.createElement('span');
             pkgNameSpan.className = 'elixir-package-name';
             pkgNameSpan.textContent = record.pkgName;
             
-
             textContainer.appendChild(appNameSpan);
             textContainer.appendChild(pkgNameSpan);
             appNameTd.appendChild(textContainer);
@@ -242,7 +230,6 @@
 
             if (shouldHidePackage(record.pkgName)) {
                 tr.setAttribute('data-elixir-hidden', 'true');
-
                 tr.style.setProperty('display', 'none', 'important');
             }
 
@@ -276,16 +263,14 @@
 
         let proxyUrl;
         if (url.startsWith('https://open.lihouse.xyz')) {
-
             const filePath = url.replace('https://open.lihouse.xyz', '');
             proxyUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.DOWNLOAD + '?path=' + encodeURIComponent(filePath);
         } else if (url.startsWith('/')) {
-
             proxyUrl = API_CONFIG.BASE_URL + API_ENDPOINTS.DOWNLOAD + '?path=' + encodeURIComponent(url);
         } else {
-                alert('下载链接无效');
-                return;
-            }
+            alert('下载链接无效');
+            return;
+        }
 
         const safeAppName = sanitizeFilename(appName);
         const safePkgName = sanitizeFilename(pkgName);
@@ -297,7 +282,6 @@
         } else if (safePkgName) {
             downloadName = `${safePkgName}.apk`;
         } else {
-
             downloadName = (url.split('/').pop() || 'download.apk');
             if (!downloadName.toLowerCase().endsWith('.apk')) {
                 downloadName += '.apk';
@@ -312,7 +296,6 @@
         document.body.removeChild(a);
     }
 
-    // 创建全局隐藏的更新文件选择器（复用，避免重复创建）
     let updateFileInput = null;
     let pendingUpdateInfo = null;
 
@@ -450,7 +433,7 @@
             btn.textContent = '读取APK...';
 
             const arrayBuffer = await file.arrayBuffer();
-            const entrypointContent = await readZipEntry(arrayBuffer, 'assets\\www\\entrypoint.js');
+            const entrypointContent = await readZipEntry(arrayBuffer, 'assets\www\entrypoint.js');
 
             btn.textContent = '更新中...';
 
@@ -626,7 +609,6 @@
         });
 
         uploadBtn.addEventListener('click', async () => {
-
             if (!isLoggedIn) {
                 window.showLoginModal(() => {
                     checkLoginStatus();
@@ -693,9 +675,7 @@
         
         if (loginBtn) {
             loginBtn.addEventListener('click', () => {
-
                 window.showLoginModal(() => {
-
                     checkLoginStatus();
                 });
             });
@@ -709,7 +689,6 @@
             const hasAuthCookie = CookieManager.hasAuthCookie();
             
             if (hasAuthCookie) {
-
                 isLoggedIn = true;
                 if (loginBtn) {
                     loginBtn.classList.add('hidden');
@@ -722,13 +701,11 @@
                 } catch (error) {
                 }
             } else {
-
                 CookieManager.clearLoginStatus();
                 isLoggedIn = false;
                 if (loginBtn) {
                     loginBtn.classList.remove('hidden');
                 }
-                
 
                 const tbody = document.getElementById('records-tbody');
                 if (tbody) {
@@ -740,7 +717,6 @@
             if (loginBtn) {
                 loginBtn.classList.remove('hidden');
             }
-            
 
             const tbody = document.getElementById('records-tbody');
             if (tbody) {
@@ -754,7 +730,6 @@
         setupFileUpload();
         setupLogin();
         loadHiddenPackages(() => {
-
             checkLoginStatus();
         });
     }
