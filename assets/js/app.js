@@ -340,68 +340,117 @@
     async function readZipEntry(arrayBuffer, entryPath) {
         const view = new DataView(arrayBuffer);
         const targetPathLower = entryPath.replace(/\\/g, '/').toLowerCase();
-        const LF_SIGNATURE = 0x04034B50;
         const EOCD_SIGNATURE = 0x06054B50;
+        const CD_SIGNATURE = 0x02014B50;
+        const LF_SIGNATURE = 0x04034B50;
 
-        let offset = 0;
-        while (offset < view.byteLength - 4) {
+        let eocdOffset = view.byteLength - 22;
+        while (eocdOffset > 0) {
+            if (view.getUint32(eocdOffset, true) === EOCD_SIGNATURE) {
+                break;
+            }
+            eocdOffset--;
+        }
+
+        if (eocdOffset <= 0) {
+            console.error('[Elixir工具] 未找到ZIP EOCD标记');
+            return null;
+        }
+
+        const cdOffset = view.getUint32(eocdOffset + 16, true);
+        const cdEntries = view.getUint16(eocdOffset + 10, true);
+
+        console.log('[Elixir工具] APK文件包含', cdEntries, '个条目');
+
+        let offset = cdOffset;
+        for (let i = 0; i < cdEntries; i++) {
+            if (offset + 4 > view.byteLength) break;
+
             const signature = view.getUint32(offset, true);
+            if (signature !== CD_SIGNATURE) {
+                console.warn('[Elixir工具] CD条目签名不匹配:', signature.toString(16));
+                break;
+            }
 
-            if (signature === LF_SIGNATURE) {
-                const version = view.getUint16(offset + 4, true);
-                const flags = view.getUint16(offset + 6, true);
-                const compression = view.getUint16(offset + 8, true);
-                const crc32 = view.getUint32(offset + 16, true);
-                const compressedSize = view.getUint32(offset + 20, true);
-                const uncompressedSize = view.getUint32(offset + 24, true);
-                const fileNameLength = view.getUint16(offset + 26, true);
-                const extraFieldLength = view.getUint16(offset + 28, true);
+            const versionMadeBy = view.getUint16(offset + 4, true);
+            const versionNeeded = view.getUint16(offset + 6, true);
+            const flags = view.getUint16(offset + 8, true);
+            const compression = view.getUint16(offset + 10, true);
+            const lastModTime = view.getUint16(offset + 12, true);
+            const lastModDate = view.getUint16(offset + 14, true);
+            const crc32 = view.getUint32(offset + 16, true);
+            const compressedSize = view.getUint32(offset + 20, true);
+            const uncompressedSize = view.getUint32(offset + 24, true);
+            const fileNameLength = view.getUint16(offset + 26, true);
+            const extraFieldLength = view.getUint16(offset + 28, true);
+            const fileCommentLength = view.getUint16(offset + 30, true);
+            const diskNumberStart = view.getUint16(offset + 32, true);
+            const internalAttrs = view.getUint16(offset + 34, true);
+            const externalAttrs = view.getUint32(offset + 36, true);
+            const localHeaderOffset = view.getUint32(offset + 42, true);
 
-                const fileNameBytes = new Uint8Array(arrayBuffer, offset + 30, fileNameLength);
-                const fileName = new TextDecoder('UTF-8').decode(fileNameBytes);
-                const fileNameLower = fileName.toLowerCase();
+            const fileNameBytes = new Uint8Array(arrayBuffer, offset + 46, fileNameLength);
+            const fileName = new TextDecoder('UTF-8').decode(fileNameBytes);
+            const fileNameLower = fileName.toLowerCase();
 
-                if (fileNameLower === targetPathLower) {
-                    const fileDataOffset = offset + 30 + fileNameLength + extraFieldLength;
-                    const fileData = new Uint8Array(arrayBuffer, fileDataOffset, compressedSize);
+            console.log('[Elixir工具] APK条目:', fileName);
 
-                    if (compression === 0) {
-                        return new TextDecoder('UTF-8').decode(fileData);
-                    } else if (compression === 8) {
-                        try {
-                            const stream = new Blob([fileData]).stream();
-                            const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
-                            const reader = decompressedStream.getReader();
-                            const chunks = [];
-                            let result;
-                            while (!(result = await reader.read()).done) {
-                                chunks.push(result.value);
-                            }
-                            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-                            const decompressedData = new Uint8Array(totalLength);
-                            let pos = 0;
-                            for (const chunk of chunks) {
-                                decompressedData.set(chunk, pos);
-                                pos += chunk.length;
-                            }
-                            return new TextDecoder('UTF-8').decode(decompressedData);
-                        } catch (e) {
-                            console.error('[Elixir工具] ZIP deflate解压失败:', e);
-                            return null;
-                        }
-                    } else {
-                        console.error('[Elixir工具] 不支持的压缩方法:', compression);
-                        return null;
-                    }
+            if (fileNameLower === targetPathLower) {
+                console.log('[Elixir工具] 找到目标文件:', fileName, '压缩大小:', compressedSize, '偏移:', localHeaderOffset);
+
+                if (localHeaderOffset + 4 > view.byteLength) {
+                    console.error('[Elixir工具] 本地文件头偏移无效');
+                    return null;
                 }
 
-                const localRecordSize = 30 + fileNameLength + extraFieldLength + compressedSize;
-                offset += localRecordSize;
-            } else if (signature === EOCD_SIGNATURE) {
-                break;
-            } else {
-                offset++;
+                const localSig = view.getUint32(localHeaderOffset, true);
+                if (localSig !== LF_SIGNATURE) {
+                    console.error('[Elixir工具] 本地文件头签名不匹配:', localSig.toString(16));
+                    return null;
+                }
+
+                const localFileNameLength = view.getUint16(localHeaderOffset + 26, true);
+                const localExtraFieldLength = view.getUint16(localHeaderOffset + 28, true);
+                const fileDataOffset = localHeaderOffset + 30 + localFileNameLength + localExtraFieldLength;
+
+                if (fileDataOffset + compressedSize > view.byteLength) {
+                    console.error('[Elixir工具] 文件数据超出范围');
+                    return null;
+                }
+
+                const fileData = new Uint8Array(arrayBuffer, fileDataOffset, compressedSize);
+
+                if (compression === 0) {
+                    return new TextDecoder('UTF-8').decode(fileData);
+                } else if (compression === 8) {
+                    try {
+                        const stream = new Blob([fileData]).stream();
+                        const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+                        const reader = decompressedStream.getReader();
+                        const chunks = [];
+                        let result;
+                        while (!(result = await reader.read()).done) {
+                            chunks.push(result.value);
+                        }
+                        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                        const decompressedData = new Uint8Array(totalLength);
+                        let pos = 0;
+                        for (const chunk of chunks) {
+                            decompressedData.set(chunk, pos);
+                            pos += chunk.length;
+                        }
+                        return new TextDecoder('UTF-8').decode(decompressedData);
+                    } catch (e) {
+                        console.error('[Elixir工具] ZIP deflate解压失败:', e);
+                        return null;
+                    }
+                } else {
+                    console.error('[Elixir工具] 不支持的压缩方法:', compression);
+                    return null;
+                }
             }
+
+            offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
         }
 
         console.warn('[Elixir工具] 在APK中未找到文件:', entryPath);
