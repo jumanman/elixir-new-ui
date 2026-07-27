@@ -441,17 +441,14 @@
 
             btn.textContent = '更新中...';
 
-            const formData = new FormData();
-            formData.append('apk', file);
-            formData.append('entrypointContent', entrypointContent || '');
-
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.UPDATE + '/' + encodeURIComponent(packageName);
 
             const response = await safeFetch(url, {
                 method: 'POST',
                 mode: 'cors',
-                body: formData,
+                body: JSON.stringify({ entrypointContent: entrypointContent || '' }),
                 headers: {
+                    'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
             });
