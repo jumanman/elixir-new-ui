@@ -9,15 +9,8 @@
     function validateUrl(url) {
         try {
             const parsedUrl = new URL(url, window.location.origin);
-            
-            if (parsedUrl.protocol !== 'https:') {
-                return false;
-            }
-            
-            if (parsedUrl.hostname !== window.location.hostname) {
-                return false;
-            }
-            
+            if (parsedUrl.protocol !== 'https:') return false;
+            if (parsedUrl.hostname !== window.location.hostname) return false;
             return true;
         } catch (e) {
             return false;
@@ -25,19 +18,12 @@
     }
 
     async function safeFetch(url, options = {}) {
-        if (!validateUrl(url)) {
-            throw new Error('请求URL验证失败');
-        }
-
-        if (!CookieManager.hasAuthCookie()) {
-            throw new Error('需要登录才能访问此功能');
-        }
+        if (!validateUrl(url)) throw new Error('请求URL验证失败');
+        if (!CookieManager.hasAuthCookie()) throw new Error('需要登录才能访问此功能');
 
         const mergedOptions = {
             ...options,
-            headers: {
-                ...options.headers
-            },
+            headers: { ...options.headers },
             credentials: 'include',
             cache: 'no-cache'
         };
@@ -53,27 +39,13 @@
         return div.innerHTML;
     }
 
-    function safeSetText(element, text) {
-        if (element) {
-            element.textContent = String(text || '');
-        }
-    }
-
-    function safeCreateTextNode(text) {
-        return document.createTextNode(String(text || ''));
-    }
-
     function loadHiddenPackages(callback) {
         try {
             const stored = CookieManager.getSecureData('elixir_hiddenPackages');
             if (stored) {
                 hiddenPackages = JSON.parse(stored);
-
-                if (!Array.isArray(hiddenPackages)) {
-                    hiddenPackages = [];
-                } else {
-                    hiddenPackages = hiddenPackages.filter(item => typeof item === 'string');
-                }
+                if (!Array.isArray(hiddenPackages)) hiddenPackages = [];
+                else hiddenPackages = hiddenPackages.filter(item => typeof item === 'string');
             } else {
                 hiddenPackages = [];
             }
@@ -100,9 +72,7 @@
     async function fetchApkData() {
         if (!CookieManager.hasAuthCookie()) {
             const tbody = document.getElementById('records-tbody');
-            if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
-            }
+            if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="no-records">请先登录</td></tr>';
             return;
         }
 
@@ -113,28 +83,17 @@
 
         try {
             const url = API_CONFIG.BASE_URL + API_ENDPOINTS.GET_APKS;
+            const response = await safeFetch(url, { method: 'GET', mode: 'cors' });
 
-            const response = await safeFetch(url, {
-                method: 'GET',
-                mode: 'cors'
-            });
-
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
+            if (!response.ok) throw new Error('HTTP ' + response.status);
 
             const data = await response.json();
 
             if (data.status && data.apks) {
                 const seenPackages = new Set();
                 allRecords = data.apks.filter(item => {
-                    if (shouldHidePackage(item.pkgName)) {
-                        return false;
-                    }
-
-                    if (seenPackages.has(item.pkgName)) {
-                        return false;
-                    }
+                    if (shouldHidePackage(item.pkgName)) return false;
+                    if (seenPackages.has(item.pkgName)) return false;
                     seenPackages.add(item.pkgName);
                     return true;
                 });
@@ -145,7 +104,6 @@
             }
         } catch (error) {
             const safeMsg = escapeHtml(error.message || '未知错误');
-
             if (error.name === 'TypeError' && error.message.includes('CORS')) {
                 tbody.innerHTML = '<tr><td colspan="3" class="no-records">跨域访问被限制，请检查后端配置</td></tr>';
             } else if (error.message.includes('需要登录才能访问此功能')) {
@@ -311,7 +269,7 @@
         return updateFileInput;
     }
 
-    async function readZipEntry(arrayBuffer, entryPath) {
+    function readZipEntry(arrayBuffer, entryPath) {
         const view = new DataView(arrayBuffer);
         const targetPathLower = entryPath.replace(/\\/g, '/').toLowerCase();
         const targetPathBackslashLower = entryPath.replace(/\//g, '\\').toLowerCase();
@@ -512,17 +470,13 @@
 
         closeBtn.addEventListener('click', () => {
             panel.classList.remove('show');
-            if (hasChanges) {
-                location.reload();
-            }
+            if (hasChanges) location.reload();
         });
 
         document.addEventListener('click', (e) => {
             if (!panel.contains(e.target) && !btn.contains(e.target)) {
                 panel.classList.remove('show');
-                if (hasChanges) {
-                    location.reload();
-                }
+                if (hasChanges) location.reload();
             }
         });
 
@@ -533,7 +487,6 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.placeholder = '输入包名';
-
             input.setAttribute('value', String(value || ''));
 
             const removeBtn = document.createElement('button');
@@ -545,7 +498,6 @@
             item.appendChild(removeBtn);
 
             input.addEventListener('input', savePackages);
-
             removeBtn.addEventListener('click', () => {
                 item.remove();
                 savePackages();
@@ -590,7 +542,6 @@
             const file = e.target.files[0];
             if (file) {
                 uploadBtn.disabled = false;
-
                 fileLabel.textContent = '';
                 const iconSpan = document.createElement('span');
                 iconSpan.className = 'upload-icon';
@@ -659,7 +610,6 @@
             } finally {
                 uploadBtn.textContent = '上传并改包';
                 fileInput.value = '';
-
                 fileLabel.textContent = '';
                 const iconSpan = document.createElement('span');
                 iconSpan.className = 'upload-icon';
